@@ -1,0 +1,114 @@
+@page "/"
+@using BcReleasePlanPortal.Data
+@using BcReleasePlanPortal.Domain
+@using Microsoft.EntityFrameworkCore
+@inject BcReleasePlanDbContext Db
+
+<PageTitle>BC Release Plan Portal — Roadmap Items</PageTitle>
+
+<div class="page">
+    <header>
+        <h1>Roadmap items</h1>
+        <p class="subtitle">Raw output of the ingest pipeline — every RoadmapItem currently in the store, most recently seen first.</p>
+    </header>
+
+    @if (_items is null)
+    {
+        <p>Loading…</p>
+    }
+    else if (_items.Count == 0)
+    {
+        <p class="empty">Nothing ingested yet. Run <code>dotnet run --run-once</code> in <code>BcReleasePlanPortal.Worker</code>.</p>
+    }
+    else
+    {
+        <div class="summary">
+            <span><strong>@_items.Count</strong> items</span>
+            <span class="urgent"><strong>@_urgentCount</strong> breaking / deprecation / retirement</span>
+            <span class="needs-confirmation"><strong>@_needsConfirmationCount</strong> need confirmation</span>
+        </div>
+
+        <nav class="product-tabs">
+            <a href="/" class="@(SelectedProduct is null ? "active" : "")">All (@_items.Count)</a>
+            @foreach (var product in _products)
+            {
+                <a href="/?product=@product" class="@(SelectedProduct == product ? "active" : "")">
+                    @product (@_items.Count(i => i.Product == product))
+                </a>
+            }
+        </nav>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Product</th>
+                    <th>Modules</th>
+                    <th>Change type</th>
+                    <th>Status</th>
+                    <th>GA date</th>
+                    <th>Last seen</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Filtered())
+                {
+                    <tr class="@(item.NeedsConfirmation ? "needs-confirmation-row" : "")">
+                        <td>
+                            <div class="title">@item.Title</div>
+                            <div class="external-id">#@item.ExternalId</div>
+                        </td>
+                        <td>@item.Product</td>
+                        <td>
+                            @if (item.Modules.Count == 0)
+                            {
+                                <span class="muted">—</span>
+                            }
+                            else
+                            {
+                                @string.Join(", ", item.Modules)
+                            }
+                        </td>
+                        <td>
+                            <span class="change-type change-type--@item.ChangeType.ToString().ToLowerInvariant()">
+                                @item.ChangeType
+                            </span>
+                            @if (item.NeedsConfirmation)
+                            {
+                                <span class="needs-confirmation-badge" title="Rule-based classification is low-confidence — needs human triage">?</span>
+                            }
+                        </td>
+                        <td>@item.Status</td>
+                        <td>@(item.GaDate?.ToString("yyyy-MM-dd") ?? "—")</td>
+                        <td>@item.LastSeenAt.ToString("yyyy-MM-dd HH:mm")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "product")]
+    public string? SelectedProduct { get; set; }
+
+    private List<RoadmapItem>? _items;
+    private List<string> _products = [];
+    private int _urgentCount;
+    private int _needsConfirmationCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Ordered client-side: SQLite can't translate ORDER BY over DateTimeOffset server-side.
+        _items = (await Db.RoadmapItems.ToListAsync())
+            .OrderByDescending(i => i.LastSeenAt)
+            .ToList();
+
+        _products = _items.Select(i => i.Product).Distinct().OrderBy(p => p).ToList();
+        _urgentCount = _items.Count(i => i.ChangeType is RoadmapChangeType.BreakingChange or RoadmapChangeType.Deprecation or RoadmapChangeType.Retirement);
+        _needsConfirmationCount = _items.Count(i => i.NeedsConfirmation);
+    }
+
+    private IEnumerable<RoadmapItem> Filtered() =>
+        _items!.Where(i => SelectedProduct is null || i.Product == SelectedProduct);
+}
