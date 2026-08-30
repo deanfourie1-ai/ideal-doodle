@@ -1,0 +1,87 @@
+{
+  "items": [
+    {
+      "id": 561025,
+      "title": "SharePoint: Power Automate trigger and action for forms in SharePoint",
+      "description": "We are introducing new Power Automate integration capabilities for forms in SharePoint, enabling customers to create automated workflows based on responses collected using list forms, file upload form...",
+      "cloudInstances": [
+        "Worldwide (Standard Multi-Tenant)"
+      ],
+      "platforms": [
+        "Web"
+      ],
+      "releaseRings": [
+        "General Availability",
+        "Preview"
+      ],
+      "moreInfoUrls": [],
+      "products": [
+        "Microsoft 365",
+        "Power Automate",
+        "SharePoint"
+      ],
+      "availabilities": [
+        {
+          "ring": "General Availability",
+          "year": 2026,
+          "month": "June"
+        },
+        {
+          "ring": "Preview",
+          "year": 2026,
+          "month": "May"
+        }
+      ],
+      "generalAvailabilityDate": "2026-06",
+      "previewAvailabilityDate": "2026-05",
+      "created": "2026-04-29T23:15:48.6218529Z",
+      "baseId": 561025,
+      "status": "In development",
+      "modified": "2026-04-29T23:15:48.6218529Z"
+    },
+    {
+      "id": 561026,
+      "title": "Microsoft Copilot (Microsoft 365): Generate documents using forms in SharePoint with Power Automate",
+      "description": "We are introducing a new Power Automate action that enables automated document generation using document generation (DocGen) forms in SharePoint. \nGenerate document from form (Preview) allows customer...",
+      "cloudInstances": [
+        "Worldwide (Standard Multi-Tenant)"
+      ],
+      "platforms": [
+        "Web"
+      ],
+      "releaseRings": [
+        "General Availability",
+        "Preview"
+      ],
+      "moreInfoUrls": [],
+      "products": [
+        "Power Automate",
+        "SharePoint",
+        "Microsoft Copilot (Microsoft 365)"
+      ],
+      "availabilities": [
+        {
+          "ring": "General Availability",
+          "year": 2026,
+          "month": "June"
+        },
+        {
+          "ring": "Preview",
+          "year": 2026,
+          "month": "May"
+        }
+      ],
+      "generalAvailabilityDate": "2026-06",
+      "previewAvailabilityDate": "2026-05",
+      "created": "2026-04-30T23:30:16.8976822Z",
+      "baseId": 561026,
+      "status": "In development",
+      "modified": "2026-04-30T23:30:16.8976822Z"
+    }
+  ],
+  "totalCount": 2,
+  "limit": 50,
+  "offset": 0,
+  "hasMore": false,
+  "returnedCount": 2
+}

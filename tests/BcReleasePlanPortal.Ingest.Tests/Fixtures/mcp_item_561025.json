@@ -1,0 +1,20 @@
+{
+  "id": 561025,
+  "title": "SharePoint: Power Automate trigger and action for forms in SharePoint",
+  "description": "We are introducing new Power Automate integration capabilities for forms in SharePoint, enabling customers to create automated workflows based on responses collected using list forms, file upload forms, and document generation forms. \nWith this update, a new trigger and action are now available in Power Automate:\nTrigger: When a form is submitted\nThis operation triggers a flow when a list form, document generation form, or file upload form is submitted. Customers can use this trigger to initiate automated workflows such as approvals, notifications, or routing based on form submission events.\n\nAction: Get form metadata\n\nThis action retrieves the metadata of a form, which includes the form ID, title, link, form type, output format, and the form questions used to collect information. This enables Power Automate flows to dynamically read form schema before executing downstream automation logic.\nDisclaimer: Document generation forms are part of AI in SharePoint Public Preview. Access to DocGen Forms capabilities may be limited to customers enrolled in the preview program. List forms and file upload forms are not part of the AI in SharePoint preview.",
+  "cloudInstances": ["Worldwide (Standard Multi-Tenant)"],
+  "platforms": ["Web"],
+  "releaseRings": ["General Availability", "Preview"],
+  "moreInfoUrls": [],
+  "products": ["Microsoft 365", "Power Automate", "SharePoint"],
+  "availabilities": [
+    { "ring": "General Availability", "year": 2026, "month": "June" },
+    { "ring": "Preview", "year": 2026, "month": "May" }
+  ],
+  "generalAvailabilityDate": "2026-06",
+  "previewAvailabilityDate": "2026-05",
+  "created": "2026-04-29T23:15:48.6218529Z",
+  "baseId": 561025,
+  "status": "In development",
+  "modified": "2026-04-29T23:15:48.6218529Z"
+}
