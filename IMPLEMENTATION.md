@@ -91,9 +91,11 @@ Built in `src/BcReleasePlanPortal.Domain`, `src/BcReleasePlanPortal.Ingest`, `sr
 
 ⬜ **Not started.** `ReleasePlan`/`ReleasePlanLine` schema exists (Phase 1) but nothing populates or exports it.
 
+**Explicit design goal for this phase (added 2026-08-30):** the Word document is not a nice-to-have export alongside the portal — it's the fallback deliverable for any customer who never touches the portal at all. On company letterhead, built entirely from the same curated data (`ImpactNote` + `CustomerItem` decisions filtered to that customer), it has to stand alone as a complete, credible release plan with zero portal access assumed. This was always implicit in the doc's §1 framing ("a deliverable customers relied on you for") — worth stating outright now so the Word template work in this phase doesn't get treated as secondary to the portal.
+
 **Next steps:**
 1. "Freeze" logic: copy curated `CustomerItem` + `ImpactNote` state into `ReleasePlanLine` rows, versioned.
-2. Word export via Open XML SDK against the existing `Werkinstructie_Template.docx` conventions (doc §9.1, §10).
+2. Word export via Open XML SDK against the existing `Werkinstructie_Template.docx` conventions (doc §9.1, §10), on company letterhead.
 3. Markdown and CSV export.
 4. Needs Phase 3 (curation UI) to produce anything worth publishing.
 
@@ -107,9 +109,19 @@ Built in `src/BcReleasePlanPortal.Domain`, `src/BcReleasePlanPortal.Ingest`, `sr
 
 ---
 
-## Phase 6 — Customer view *(phase 2+ in the doc)*
+## Phase 6 — Customer view *(phase 2+ in the doc, scope expanded 2026-08-30)*
 
-⬜ **Not started.** Tokenised read-only web view, no login.
+⬜ **Not started.** Originally scoped (doc §9.2) as a tokenised, read-only, no-login link rendering a frozen snapshot. Expanded scope, agreed 2026-08-30:
+
+- **Live "what's new" view, filtered by the customer's own modules.** Not just the frozen document — a page the customer can return to that shows items relevant to them (via `CustomerItem`, filtered by `Customer.ModulesInUse`), with a "changes since publication" banner as originally scoped.
+- **"Ask for help" action per feature → creates a ticket in TopDesk.** Decision made 2026-08-30: TopDesk specifically, via its REST API, not a mailto: or generic webform. Needs a TopDesk API credential/config, a payload mapping (subject/description built from the `RoadmapItem` + `ImpactNote`, caller reference tied to the `Customer` record so it lands against the right account), and error handling for a failed ticket creation (never lose the customer's request — fail with a visible retry, don't silently drop it).
+- **Consequence for "no login":** a bare tokenized link with no server-side identity has nothing to attach a TopDesk caller reference to. This still doesn't need full customer login (the doc's original instinct not to build customer auth for an internal-consulting-firm tool is sound), but the link now needs to resolve to a specific `Customer` record server-side rather than just gating access to a static document. A per-customer tokenized link that maps to a `Customer.Id` (revocable, expiring, same as originally scoped) still satisfies this without building real auth.
+
+**Next steps:**
+1. Design the tokenized-link-to-`Customer` resolution (revocable, expiring — doc's original requirement, still holds).
+2. Build the filtered "what's new" view against `CustomerItem`/`Customer.ModulesInUse` (needs Phase 2's match engine and real profile data).
+3. TopDesk integration: confirm API auth method (API key vs. OAuth), build the ticket-creation call, decide what "success" looks like to the customer (confirmation + ticket number shown inline).
+4. Needs Phases 2–4 first — there's nothing to show a customer until items are matched, curated, and at least one plan is published.
 
 ## Phase 7 — Profile automation *(phase 2+ in the doc)*
 
@@ -130,3 +142,4 @@ Still open, unchanged by anything built so far:
 3. F&SCM later? `RoadmapItem.Product` is already a free-text string, not a fixed enum, specifically to keep this open (and to support "all Microsoft platforms we sell," per direction given during Phase 1).
 4. Who owns profile data — still unresolved, and now blocking Phase 0/2/3.
 5. ISV roadmaps: same document or separate annex — still open, relevant once Phase 8 starts.
+6. *(New, resolved 2026-08-30)* Support-ticket target for the Phase 6 customer portal: **TopDesk**, via API. Still open within that: API auth method, and exact caller/customer mapping for tickets created this way.
