@@ -6,6 +6,35 @@ Legend: ✅ Done · 🔄 In progress / partial · ⬜ Not started
 
 ---
 
+## Conventions
+
+**Language: English throughout.** Schema, curation UI, and the published customer document are all
+English. This resolves the design doc's §13 open decision 2, which left the working language open
+and leaned toward "English internally, Dutch only at the publish boundary" — the publish-boundary
+half is dropped; there is no Dutch layer.
+
+Consequences, so this doesn't get re-litigated field by field:
+
+- No language suffixes on schema fields. `ImpactNote.Summary` / `.WhyItMatters` / `.ActionRequired`,
+  `CustomerItem.OverrideNote`, `ReleasePlanLine.Title` / `.Summary` / `.Action` — all previously
+  carried an `Nl` suffix, renamed 2026-08-30.
+- Decision states (`onbeslist` / `overnemen` / …) render in English: Undecided, Adopt, Test first,
+  Ignore, Blocked.
+- Document section headings are English: Summary, Mandatory changes, Recommended new functionality,
+  For information, Next steps, Changes since previous version.
+- If a translated document is ever wanted, it becomes a layer over these fields (a translation step
+  at publish time), never a second set of columns.
+
+Two things that look like exceptions but aren't: **`Localisation-NL`** is one of Microsoft's own BC
+module names (the Dutch localisation of the product), and **`Werkinstructie_Template.docx`** is the
+real filename of the company's existing Word template. Both are proper nouns, not language choices —
+the template's *content* is English.
+
+Unaffected by this: `CustomerContact.Language` still records a real person's own preference, and
+`RoadmapIngest.TimeZoneId` (`Europe/Amsterdam`) is geography, not language.
+
+---
+
 ## Phase 0 — Spike
 
 **Goal (doc):** confirm roadmap RSS/CSV shape for BC items, confirm MCP responses, hand-build 2 customer profiles.
@@ -15,7 +44,7 @@ Legend: ✅ Done · 🔄 In progress / partial · ⬜ Not started
 - ✅ Confirmed live, against the real server (2026-08-30): `https://www.microsoft.com/releasecommunications/mcp` works exactly as documented — JSON-RPC over a single-POST "streamable HTTP" call, 4 read-only tools (`get_recent_m365_roadmaps`, `get_m365_roadmap_by_id`, `get_recent_azure_updates`, `get_azure_update_by_id`), no auth.
 - ⚠️ **Finding that changes scope:** the dataset behind that MCP server is Microsoft 365 + Azure only (1775 items, 36 products) — **Business Central is not present**, today. The doc's premise ("BC roadmap content moves onto this surface from September 2026") doesn't hold yet, or BC lands somewhere else entirely. See `RoadmapIngestOptions` doc comments for the workaround (config-driven product filters, seeded with a product that has live data so the pipeline is provably working).
 - ⬜ Learn "what's new"/deprecated-features page shape — not confirmed. `learn.microsoft.com` is blocked by this environment's network policy; never reachable to inspect.
-- ⬜ Hand-built customer profiles — not done. `Customer`/`CustomerProfile` schema exists (Phase 1) but no real profile data.
+- ⬜ Hand-built customer profiles — not done. The `Customer` schema exists (Phase 1; the doc's separate `CustomerProfile` is folded into it as owned value objects) but there is no real profile data.
 
 **Next steps:**
 1. Re-check the MCP roadmap dataset periodically (or after September 2026) for a Dynamics 365 / Business Central product tag appearing.
@@ -51,7 +80,7 @@ Built in `src/BcReleasePlanPortal.Domain`, `src/BcReleasePlanPortal.Ingest`, `sr
 
 ## Phase 1.5 — Basic viewer *(not in the doc's original plan; built as a checkpoint)*
 
-✅ **Done.** `src/BcReleasePlanPortal.Web` — a minimal read-only Blazor page at `/` showing every ingested `RoadmapItem` (title, product, modules, change type, status, GA date, needs-confirmation flag), with product tabs. No auth, no editing. Exists purely so the ingest pipeline's output is visible without querying SQLite by hand; superseded by the real Triage screen in Phase 3.
+✅ **Done.** `src/BcReleasePlanPortal.Web` — a minimal read-only Blazor page at `/` showing every ingested `RoadmapItem` (title, product, modules, change type, status, GA date, needs-confirmation flag), with product tabs. No auth, no editing. Exists purely so the ingest pipeline's output is visible without querying SQLite by hand; this page grows into the real Triage screen in Phase 3 rather than being thrown away.
 
 ---
 
@@ -73,15 +102,25 @@ Built in `src/BcReleasePlanPortal.Domain`, `src/BcReleasePlanPortal.Ingest`, `sr
 
 **Goal (doc §8):** triage queue, impact editor, customer board.
 
-🔄 **Partial.** A visual design mockup of all 5 screens exists (published as a Claude Design canvas artifact earlier in this project — not yet built as real UI). The read-only viewer (Phase 1.5) covers a sliver of "triage queue" but has no actions.
+🔄 **Partial.** A visual design mockup of all 5 screens exists — a Claude Design canvas at
+https://claude.ai/code/artifact/f5f8ec88-0391-4c5c-a27d-73a4d73039a5 — not yet built as real UI.
+The read-only viewer (Phase 1.5) covers a sliver of "triage queue" but has no actions.
 
-⬜ Not built: confirm/reject actions on triage rows, the impact note editor (Dutch fields, effort/risk selectors, matched-customers panel), the per-customer Kanban decision board.
+⚠️ **The mockup is out of date as of 2026-08-30:** it was drawn with Dutch labels throughout
+(`onbeslist` / `overnemen` / `eerst testen` / `negeren` / `geblokkeerd`, `Verplichte wijzigingen`,
+Dutch impact-note fields and sample document copy). Under the English-throughout convention above,
+it needs regenerating before it's used as a build reference — the layouts and information hierarchy
+still hold, only the labels and sample copy are wrong.
+
+⬜ Not built: confirm/reject actions on triage rows, the impact note editor (effort/risk selectors,
+matched-customers panel), the per-customer Kanban decision board.
 
 **Next steps:**
-1. Turn `BcReleasePlanPortal.Web`'s Home page into the real Triage screen: confirm/reject buttons that write `RoadmapItem.NeedsConfirmation = false` (and let a human override `ChangeType`/`Modules`).
-2. Build the Impact Editor screen against `ImpactNote` (schema exists) — this is where AI-drafted Dutch copy would plug in per the doc's core principle #3 (AI enrichment, never in the ingest path).
-3. Build the per-customer Kanban board against `CustomerItem.Decision` (schema exists) — needs Phase 2's match engine to have real candidates to show.
-4. Needs Phase 2 (match engine) and real `Customer` data (Phase 0) before this is meaningfully usable end to end.
+1. Regenerate the design mockup with English labels and sample copy (layouts unchanged).
+2. Turn `BcReleasePlanPortal.Web`'s Home page into the real Triage screen: confirm/reject buttons that write `RoadmapItem.NeedsConfirmation = false` (and let a human override `ChangeType`/`Modules`).
+3. Build the Impact Editor screen against `ImpactNote` (schema exists) — this is where AI-drafted copy would plug in per the doc's core principle #3 (AI enrichment, never in the ingest path).
+4. Build the per-customer Kanban board against `CustomerItem.Decision` (schema exists) — needs Phase 2's match engine to have real candidates to show.
+5. Needs Phase 2 (match engine) and real `Customer` data (Phase 0) before this is meaningfully usable end to end.
 
 ---
 
@@ -95,7 +134,7 @@ Built in `src/BcReleasePlanPortal.Domain`, `src/BcReleasePlanPortal.Ingest`, `sr
 
 **Next steps:**
 1. "Freeze" logic: copy curated `CustomerItem` + `ImpactNote` state into `ReleasePlanLine` rows, versioned.
-2. Word export via Open XML SDK against the existing `Werkinstructie_Template.docx` conventions (doc §9.1, §10), on company letterhead.
+2. Word export via Open XML SDK against the existing `Werkinstructie_Template.docx` conventions (doc §9.1, §10), on company letterhead. Section headings in English per the conventions above — the doc's §9.1 names them in Dutch (`Samenvatting`, `Verplichte wijzigingen`, …); use the English equivalents.
 3. Markdown and CSV export.
 4. Needs Phase 3 (curation UI) to produce anything worth publishing.
 
@@ -123,9 +162,13 @@ Built in `src/BcReleasePlanPortal.Domain`, `src/BcReleasePlanPortal.Ingest`, `sr
 3. TopDesk integration: confirm API auth method (API key vs. OAuth), build the ticket-creation call, decide what "success" looks like to the customer (confirmation + ticket number shown inline).
 4. Needs Phases 2–4 first — there's nothing to show a customer until items are matched, curated, and at least one plan is published.
 
+---
+
 ## Phase 7 — Profile automation *(phase 2+ in the doc)*
 
 ⬜ **Not started.** BC admin centre API for versions/update dates; AL repo parser for `extends_objects`.
+
+---
 
 ## Phase 8 — ISV layer *(phase 2+ in the doc)*
 
@@ -135,10 +178,10 @@ Built in `src/BcReleasePlanPortal.Domain`, `src/BcReleasePlanPortal.Ingest`, `sr
 
 ## Open items carried over from the design doc (§13)
 
-Still open, unchanged by anything built so far:
+Two of these have been resolved since; the rest still stand.
 
 1. Billable service line vs. included-in-support vs. sales differentiator?
-2. English internal / Dutch at publish boundary — confirmed as the working convention in code so far (e.g. `ImpactNote.SummaryNl` etc.), except the Customer Board's decision-state labels, which the user explicitly asked to be Dutch in the UI.
+2. ~~English or Dutch as the internal working language?~~ **Resolved 2026-08-30: English throughout** — see Conventions at the top. Goes further than the doc's own recommendation, which kept Dutch at the publish boundary; there is no Dutch layer at all now.
 3. F&SCM later? `RoadmapItem.Product` is already a free-text string, not a fixed enum, specifically to keep this open (and to support "all Microsoft platforms we sell," per direction given during Phase 1).
 4. Who owns profile data — still unresolved, and now blocking Phase 0/2/3.
 5. ISV roadmaps: same document or separate annex — still open, relevant once Phase 8 starts.

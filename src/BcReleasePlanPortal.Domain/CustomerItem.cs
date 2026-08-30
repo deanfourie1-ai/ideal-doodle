@@ -26,8 +26,8 @@ public class CustomerItem
 
     public CustomerItemDecision Decision { get; set; } = CustomerItemDecision.Undecided;
 
-    /// <summary>Customer-specific addendum to the shared ImpactNote — usually empty.</summary>
-    public string OverrideNl { get; set; } = string.Empty;
+    /// <summary>Customer-specific addendum to the shared ImpactNote — usually empty. English, as with ImpactNote.</summary>
+    public string OverrideNote { get; set; } = string.Empty;
 
     public string? Owner { get; set; }
 

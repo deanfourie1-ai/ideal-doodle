@@ -79,5 +79,11 @@ public class CustomerContact
 {
     public string Name { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
-    public string Language { get; set; } = "nl";
+
+    /// <summary>
+    /// The contact's own preferred language, as real-world data about that person — independent of
+    /// the tool's working language, which is English throughout. Nothing reads this yet; it exists
+    /// so the information isn't lost if a translated document is ever offered.
+    /// </summary>
+    public string Language { get; set; } = "en";
 }

@@ -16,7 +16,7 @@ public class ReleasePlan
     /// <summary>e.g. "1.0", "1.1".</summary>
     public required string Version { get; set; }
 
-    /// <summary>e.g. "Oktober 2026 – Maart 2027".</summary>
+    /// <summary>e.g. "October 2026 – March 2027".</summary>
     public required string PeriodLabel { get; set; }
 
     public DateTimeOffset? PublishedAt { get; set; }
@@ -30,6 +30,10 @@ public class ReleasePlan
     public List<ReleasePlanLine> Lines { get; set; } = [];
 }
 
+/// <summary>
+/// One frozen line of a published plan: the ImpactNote and per-customer text copied verbatim at
+/// publish time so the document never changes retroactively. English, as with <see cref="ImpactNote"/>.
+/// </summary>
 public class ReleasePlanLine
 {
     public Guid Id { get; set; }
@@ -40,11 +44,11 @@ public class ReleasePlanLine
 
     public Guid RoadmapItemId { get; set; }
 
-    public required string TitleNl { get; set; }
+    public required string Title { get; set; }
 
-    public string SummaryNl { get; set; } = string.Empty;
+    public string Summary { get; set; } = string.Empty;
 
-    public string ActionNl { get; set; } = string.Empty;
+    public string Action { get; set; } = string.Empty;
 
     public RoadmapChangeType ChangeType { get; set; }
 

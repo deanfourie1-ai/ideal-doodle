@@ -1,7 +1,9 @@
 namespace BcReleasePlanPortal.Ingest.Normalization;
 
 /// <summary>
-/// Keyword-per-module lookup against the BC module taxonomy from design doc §5.1. Multiple
+/// Keyword-per-module lookup against the BC module taxonomy from design doc §5.1. ("Localisation-NL"
+/// is one of Microsoft's own BC modules — the Dutch localisation of the product — not a statement
+/// about this tool's language, which is English throughout.) Multiple
 /// modules can match the same item. When nothing matches, the item comes back with an empty
 /// module list and <c>Confident: false</c> — the normalizer flags it <c>NeedsConfirmation</c>
 /// rather than guessing a module. Keyword sets are intentionally conservative (BC domain terms,

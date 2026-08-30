@@ -124,7 +124,7 @@ namespace BcReleasePlanPortal.Data.Migrations
                     b.Property<int>("MatchScore")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("OverrideNl")
+                    b.Property<string>("OverrideNote")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
@@ -156,7 +156,7 @@ namespace BcReleasePlanPortal.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("ActionRequiredNl")
+                    b.Property<string>("ActionRequired")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
@@ -175,11 +175,11 @@ namespace BcReleasePlanPortal.Data.Migrations
                     b.Property<Guid>("RoadmapItemId")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("SummaryNl")
+                    b.Property<string>("Summary")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("WhyItMattersNl")
+                    b.Property<string>("WhyItMatters")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
@@ -233,7 +233,7 @@ namespace BcReleasePlanPortal.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("ActionNl")
+                    b.Property<string>("Action")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
@@ -261,11 +261,11 @@ namespace BcReleasePlanPortal.Data.Migrations
                     b.Property<int>("SortOrder")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("SummaryNl")
+                    b.Property<string>("Summary")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("TitleNl")
+                    b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("TEXT");
 

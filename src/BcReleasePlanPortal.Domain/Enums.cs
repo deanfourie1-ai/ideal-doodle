@@ -58,7 +58,7 @@ public enum RiskLevel
     High,
 }
 
-/// <summary>CustomerItem.decision — kept in English internally; the curation UI may localize display (design doc §5.5).</summary>
+/// <summary>CustomerItem.decision (design doc §5.5). Displayed as-is: English is the working language throughout.</summary>
 public enum CustomerItemDecision
 {
     Undecided,
