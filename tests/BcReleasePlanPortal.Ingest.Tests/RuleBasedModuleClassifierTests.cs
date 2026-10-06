@@ -93,6 +93,28 @@ public class RuleBasedModuleClassifierTests
     }
 
     [Fact]
+    public void Generic_mention_of_customers_does_not_tag_Sales()
+    {
+        // Real Learn deprecation text (AMC Fundamentals removal, 2027 wave 1) — a banking app.
+        var result = _classifier.Classify(
+            title: "AMC Fundamentals app (removal)",
+            description: "Customers who use AMC Fundamentals and wish to use AMC's new app must coordinate this migration with AMC.",
+            microsoftProductTags: []);
+
+        Assert.DoesNotContain("Sales", result.Modules);
+    }
+
+    [Theory]
+    [InlineData("Ecommerce - Control sales document creation for Shopify orders and returns")]
+    [InlineData("Show balance on the customer card")]
+    public void Specific_sales_terms_still_tag_Sales(string title)
+    {
+        var result = _classifier.Classify(title, description: "", microsoftProductTags: []);
+
+        Assert.Contains("Sales", result.Modules);
+    }
+
+    [Fact]
     public void Returns_no_modules_and_low_confidence_when_nothing_matches()
     {
         var result = _classifier.Classify(

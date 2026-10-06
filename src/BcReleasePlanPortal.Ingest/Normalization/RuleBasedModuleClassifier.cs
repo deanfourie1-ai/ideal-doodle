@@ -17,7 +17,9 @@ namespace BcReleasePlanPortal.Ingest.Normalization;
 /// Plain substring matching was tried first and failed on the first real BC data (2026-10-06):
 /// "sepa" matched "separate" and tagged 10 of 80 items Localisation-NL. "dutch" on its own was
 /// also dropped for "dutch locali*" — Microsoft lists Dutch among supported UI languages, which
-/// says nothing about the Dutch localisation.
+/// says nothing about the Dutch localisation. Bare "customer" was dropped from Sales for the
+/// same reason: Microsoft writes "customers can…" in most descriptions, and it alone tagged 11
+/// of 13 Sales items, nearly all wrongly (a banking-app removal, Page Scripting, lookups).
 /// </para>
 /// </summary>
 public sealed class RuleBasedModuleClassifier : IModuleClassifier
@@ -25,7 +27,7 @@ public sealed class RuleBasedModuleClassifier : IModuleClassifier
     private static readonly Dictionary<string, string[]> ModuleKeywords = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Finance"] = ["general ledger", "bank reconciliation", "bank rec*", "chart of accounts", "financial report", "currency", "vat", "fixed asset", "cash flow", "budget", "audit trail"],
-        ["Sales"] = ["sales order", "sales quote", "sales invoice", "customer", "crm", "sales price"],
+        ["Sales"] = ["sales order", "sales quote", "sales invoice", "sales document", "sales return", "customer card", "customer ledger", "crm", "sales price"],
         ["Purchasing"] = ["purchase order", "purchase invoice", "vendor", "requisition", "approval workflow"],
         ["Warehouse"] = ["warehouse", "license plate", "bin", "put-away", "pick", "inventory"],
         ["Manufacturing"] = ["manufactur*", "production order", "routing", "bill of material", "bom", "capacity planning"],
