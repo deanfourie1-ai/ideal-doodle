@@ -1,0 +1,135 @@
+@page "/customers"
+@using BcReleasePlanPortal.Data
+@using BcReleasePlanPortal.Domain
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<BcReleasePlanDbContext> DbFactory
+
+<PageTitle>BC Release Plan Portal — Customers</PageTitle>
+
+<div class="page">
+    <header>
+        <h1>Customers</h1>
+        <p class="subtitle">The profiles the match engine scores roadmap items against. Read-only — profiles are maintained in a JSON file and loaded with <code>--seed-customers</code>.</p>
+    </header>
+
+    @if (_customers is null)
+    {
+        <p>Loading…</p>
+    }
+    else if (_customers.Count == 0)
+    {
+        <p class="empty">No customers yet. Run <code>dotnet run --project src/BcReleasePlanPortal.Worker -- --seed-customers samples/customers.sample.json</code>.</p>
+    }
+    else
+    {
+        <div class="customer-grid">
+            @foreach (var customer in _customers)
+            {
+                <article class="customer-card">
+                    <header class="customer-head">
+                        <h2>@customer.Name</h2>
+                        @if (customer.Flags.IsSample)
+                        {
+                            <span class="sample-badge" title="Made-up profile for development — never published to a customer">Sample</span>
+                        }
+                    </header>
+
+                    <div class="environments">
+                        @foreach (var env in customer.Environments)
+                        {
+                            <span class="env">@env.Name · v@(env.Version) · @env.Country</span>
+                        }
+                        <span class="env">Review: @customer.ReviewCadence</span>
+                    </div>
+
+                    <section>
+                        <h3>Modules</h3>
+                        <div class="chips">
+                            @foreach (var module in BcModules.All)
+                            {
+                                <span class="chip @(customer.ModulesInUse.Contains(module) ? "chip--on" : "chip--off")">@module</span>
+                            }
+                        </div>
+                    </section>
+
+                    <section>
+                        <h3>AppSource apps</h3>
+                        @if (customer.AppSourceApps.Count == 0)
+                        {
+                            <p class="muted">None</p>
+                        }
+                        <ul>
+                            @foreach (var app in customer.AppSourceApps)
+                            {
+                                <li>@app.Name <span class="muted">— @app.Publisher</span></li>
+                            }
+                        </ul>
+                    </section>
+
+                    <section>
+                        <h3>Custom extensions</h3>
+                        @if (customer.CustomExtensions.Count == 0)
+                        {
+                            <p class="muted">None</p>
+                        }
+                        @foreach (var ext in customer.CustomExtensions)
+                        {
+                            <div class="extension">
+                                <div>@ext.Name</div>
+                                <div class="objects">extends @string.Join(", ", ext.ExtendsObjects)</div>
+                            </div>
+                        }
+                    </section>
+
+                    <section>
+                        <h3>Integrations</h3>
+                        <div class="chips">
+                            <span class="chip @(customer.Integrations.ODataV4 ? "chip--on" : "chip--off")">OData v4</span>
+                            <span class="chip @(customer.Integrations.ApiV2 ? "chip--on" : "chip--off")">API v2</span>
+                            <span class="chip @(customer.Integrations.Webhooks ? "chip--on" : "chip--off")">Webhooks</span>
+                            <span class="chip @(customer.Integrations.PowerAutomate ? "chip--on" : "chip--off")">Power Automate</span>
+                            <span class="chip @(customer.Integrations.Soap ? "chip--warn" : "chip--off")" title="SOAP is being phased out — a strong match signal">SOAP</span>
+                        </div>
+                        @if (customer.Integrations.SoapEndpoints.Count > 0)
+                        {
+                            <p class="detail">SOAP endpoints: @string.Join(", ", customer.Integrations.SoapEndpoints)</p>
+                        }
+                        @if (customer.Integrations.Other.Count > 0)
+                        {
+                            <p class="detail">Also depends on: @string.Join(" · ", customer.Integrations.Other)</p>
+                        }
+                    </section>
+
+                    <section>
+                        <h3>Flags</h3>
+                        <div class="chips">
+                            <span class="chip @(customer.Flags.UsesCopilot ? "chip--on" : "chip--off")">Copilot</span>
+                            <span class="chip @(customer.Flags.MultiCompany ? "chip--on" : "chip--off")">Multi-company</span>
+                            <span class="chip @(customer.Flags.HasTestEnvironment ? "chip--on" : "chip--off")">Test environment</span>
+                        </div>
+                    </section>
+
+                    <section>
+                        <h3>Contacts</h3>
+                        <ul>
+                            @foreach (var contact in customer.Contacts)
+                            {
+                                <li>@contact.Role <span class="muted">— @contact.Name (@contact.Language)</span></li>
+                            }
+                        </ul>
+                    </section>
+                </article>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<Customer>? _customers;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _customers = await db.Customers.AsNoTracking().OrderBy(c => c.Name).ToListAsync();
+    }
+}
