@@ -11,8 +11,13 @@ public static class ServiceCollectionExtensions
     {
         var connectionString = configuration.GetConnectionString("BcReleasePlan") ?? "Data Source=bcreleaseplan.db";
 
-        services.AddDbContext<BcReleasePlanDbContext>(options => options.UseSqlite(connectionString));
+        // Options are singleton so the factory (used by interactive UI components, which outlive a
+        // request) and the scoped context (used by ingest) can share them.
+        services.AddDbContext<BcReleasePlanDbContext>(options => options.UseSqlite(connectionString), optionsLifetime: ServiceLifetime.Singleton);
+        services.AddDbContextFactory<BcReleasePlanDbContext>(options => options.UseSqlite(connectionString));
         services.AddScoped<IRoadmapItemStore, RoadmapItemStore>();
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<RoadmapTriageService>();
 
         return services;
     }

@@ -68,7 +68,7 @@ Built in `src/BcReleasePlanPortal.Domain`, `src/BcReleasePlanPortal.Ingest`, `sr
 - ✅ Daily background job (`Worker/DailyIngestBackgroundService.cs`, 06:00 Europe/Amsterdam, configurable) + `dotnet run --run-once` for manual runs.
 - ✅ Teams webhook alerting for urgent changes (`Alerts/`), no-op/logged when no webhook URL is configured.
 - ✅ Config-driven product filters (`RoadmapIngest:ProductFilters` in `appsettings.json`) — not hardcoded to BC, ready for other Microsoft platforms per the "we sell them all" direction.
-- ✅ 71 unit tests, several built on real MCP responses captured live rather than fabricated fixtures.
+- ✅ 84 unit tests, several built on real MCP responses captured live rather than fabricated fixtures.
 - ✅ **Module classifier hardened against real BC data** (2026-10-06). The first BC ingest exposed plain substring matching: `sepa` hit "separate", `vat` hit "elevated"/"avatars", `bin` hit "combines", `al language` hit "natural language" — 17 wrong tags across 80 items, 11 of them `Localisation-NL`. Now whole-word matching (with plural/verb endings; a trailing `*` marks a stem), and bare `dutch` became `dutch locali*` because Microsoft lists Dutch among supported UI languages. Re-ingested from a fresh DB: all 17 wrong tags gone, no correct tags lost, `Localisation-NL` count 11 → 0, untagged items 11 → 17 (correct: no tag beats a wrong one). Regression tests use two of the real items as fixtures. Follow-up the same day: bare `customer` dropped from Sales (it alone tagged 11 of 13 Sales items — "customers can…" is in most descriptions); replaced by `sales document`, `sales return`, `customer card`, `customer ledger`. 9 wrong Sales tags removed; "Manage Shopify B2B companies, catalogs, and pricing" lost Sales too and now goes to triage untagged.
 - ✅ **Learn "What's new" source** (`Learn/HttpLearnPageSource.cs`, AngleSharp). Each run reads the two most recent major-update pages and sets `TargetVersion` by Roadmap ID — meaning the update a feature becomes **generally available** in; rows marked Public preview are skipped (29.0 lists Expense Agent features as preview whose GA is April 2027). Learn only ever sets or moves a version, never clears one, so a Learn outage can't look like Microsoft un-scheduling features; a first version is enrichment and raises no ChangeEvent, a version that moves does. Verified on the live data: 68 of 80 BC items get 29.0, the 11 in-development items and one preview-only item stay empty, a second run changes nothing. Viewer shows a Version column.
 - ✅ **Learn deprecated-features source** (2026-10-06). Each feature section of the deprecated-features page becomes its own item (`Source = LearnDeprecation`), from the current BC major version onward — earlier removals have already happened to every online tenant. Change type comes from the page's own words, so it's confident: "(removal)"/Removed → Retirement, "(warning)" → Deprecation, Moved → BehaviourChange, Replaced → Deprecation. `TargetVersion` from the wave heading (or derived: 2026 wave 2 = 29.0 — the formula reproduces every version the page prints), `GaDate` = wave start (April/October). External ID is version + title slug, not Learn's anchor, because Learn numbers duplicate anchors by position. A feature's warning and its later removal are separate items — two distinct events for a customer. Verified live: 4 items (Finance reports API warning in 29.0; AMC Fundamentals, Peppol BIS 2.x and Finance reports API removals in 30.0); second run is a no-op. Both sources share one persist/diff/alert path.
@@ -85,7 +85,7 @@ Built in `src/BcReleasePlanPortal.Domain`, `src/BcReleasePlanPortal.Ingest`, `sr
 
 ## Phase 1.5 — Basic viewer *(not in the doc's original plan; built as a checkpoint)*
 
-✅ **Done.** `src/BcReleasePlanPortal.Web` — a minimal read-only Blazor page at `/` showing every ingested `RoadmapItem` (title, product, modules, change type, status, GA date, needs-confirmation flag), with product tabs. No auth, no editing. Exists purely so the ingest pipeline's output is visible without querying SQLite by hand; this page grows into the real Triage screen in Phase 3 rather than being thrown away.
+✅ **Done.** `src/BcReleasePlanPortal.Web` — a minimal read-only Blazor page at `/` showing every ingested `RoadmapItem` (title, product, modules, change type, status, GA date, needs-confirmation flag), with product tabs. No auth, no editing. Exists purely so the ingest pipeline's output is visible without querying SQLite by hand; this page grows into the real Triage screen in Phase 3 rather than being thrown away. *(Superseded 2026-10-06: the page became the Triage screen — see Phase 3.)*
 
 ---
 
@@ -108,8 +108,16 @@ Built in `src/BcReleasePlanPortal.Domain`, `src/BcReleasePlanPortal.Ingest`, `sr
 **Goal (doc §8):** triage queue, impact editor, customer board.
 
 🔄 **Partial.** A visual design mockup of all 5 screens exists — a Claude Design canvas at
-https://claude.ai/code/artifact/f5f8ec88-0391-4c5c-a27d-73a4d73039a5 — not yet built as real UI.
-The read-only viewer (Phase 1.5) covers a sliver of "triage queue" but has no actions.
+https://claude.ai/code/artifact/f5f8ec88-0391-4c5c-a27d-73a4d73039a5 — the Triage screen is now real UI (built without refreshing the mockup; the layout follows the existing viewer); the other four screens aren't built yet.
+
+✅ **Triage screen built (2026-10-06)** — `/` in `BcReleasePlanPortal.Web`, now interactive (Blazor Server):
+
+- Default view is the queue (items with `NeedsConfirmation`), urgent types first, then by GA date; "All items" tab and product filter are links (`?view=all`, `?product=bc`). Description expandable per row; Learn deprecations badged.
+- **Confirm** accepts the classifiers' reading; **Edit** sets change type + modules (checkboxes from `Domain.BcModules.All`, the taxonomy the classifier keywords are now tested against); **Reopen** undoes a decision; every action offers **Undo**.
+- New column `RoadmapItem.TriagedAt` (migration `AddRoadmapItemTriagedAt`) — non-null means change type and modules are human-owned. Writes go through `Data.RoadmapTriageService`.
+- **Ingest respects triage** (`Ingest/Diffing/TriageCarryOver.cs`): re-ingest keeps the human values and raises no ChangeEvents for them — *except* when the fresh classification is urgent (deprecation/retirement/breaking) and differs from the human one: then the classifier wins and the item goes back to the queue, so a human "Enhancement" can never hide a removal announced later.
+- Verified in the real app by driving Edge with Playwright: confirm, undo, edit-and-save, reopen all round-trip to the DB; a decision made in the UI on a Learn deprecation (re-normalized every run, so the strictest case) survived two ingest runs unchanged with zero ChangeEvents. Test decisions were rolled back afterwards — the local DB starts with 84 items in the queue, none triaged.
+- Not yet: who triaged (no auth — `TriagedAt` only); bulk confirm; a favicon (the only console 404).
 
 ⚠️ **The mockup is out of date as of 2026-08-30:** it was drawn with Dutch labels throughout
 (`onbeslist` / `overnemen` / `eerst testen` / `negeren` / `geblokkeerd`, `Verplichte wijzigingen`,
@@ -117,12 +125,12 @@ Dutch impact-note fields and sample document copy). Under the English-throughout
 it needs regenerating before it's used as a build reference — the layouts and information hierarchy
 still hold, only the labels and sample copy are wrong.
 
-⬜ Not built: confirm/reject actions on triage rows, the impact note editor (effort/risk selectors,
+⬜ Not built: the impact note editor (effort/risk selectors,
 matched-customers panel), the per-customer Kanban decision board.
 
 **Next steps:**
 1. Regenerate the design mockup with English labels and sample copy (layouts unchanged).
-2. Turn `BcReleasePlanPortal.Web`'s Home page into the real Triage screen: confirm/reject buttons that write `RoadmapItem.NeedsConfirmation = false` (and let a human override `ChangeType`/`Modules`).
+2. ~~Triage screen~~ — done (above). Reopen semantics to revisit once real triage happens: reopening keeps the human values in place (the classifiers only take over again when Microsoft next modifies the item).
 3. Build the Impact Editor screen against `ImpactNote` (schema exists) — this is where AI-drafted copy would plug in per the doc's core principle #3 (AI enrichment, never in the ingest path).
 4. Build the per-customer Kanban board against `CustomerItem.Decision` (schema exists) — needs Phase 2's match engine to have real candidates to show.
 5. Needs Phase 2 (match engine) and real `Customer` data (Phase 0) before this is meaningfully usable end to end.

@@ -3,6 +3,7 @@ using System;
 using BcReleasePlanPortal.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BcReleasePlanPortal.Data.Migrations
 {
     [DbContext(typeof(BcReleasePlanDbContext))]
-    partial class BcReleasePlanDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261006203927_AddRoadmapItemTriagedAt")]
+    partial class AddRoadmapItemTriagedAt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.10");

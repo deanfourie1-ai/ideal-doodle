@@ -64,5 +64,12 @@ public class RoadmapItem
 
     public DateTimeOffset LastSeenAt { get; set; }
 
+    /// <summary>
+    /// When a person confirmed or corrected this item in triage (design doc §8 Screen 1). Non-null
+    /// means <see cref="ChangeType"/> and <see cref="Modules"/> are human-owned: ingest keeps them
+    /// instead of re-running the classifiers — unless the item turns urgent, which sends it back.
+    /// </summary>
+    public DateTimeOffset? TriagedAt { get; set; }
+
     public List<ChangeEvent> ChangeEvents { get; set; } = [];
 }

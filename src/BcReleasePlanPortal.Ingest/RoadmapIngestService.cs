@@ -163,6 +163,10 @@ public sealed class RoadmapIngestService(
 
         current.Id = existing.Id;
         current.FirstSeenAt = existing.FirstSeenAt;
+        if (TriageCarryOver.Apply(existing, current))
+        {
+            logger.LogWarning("Triaged item {ExternalId} reclassified as {ChangeType}; sent back to triage", current.ExternalId, current.ChangeType);
+        }
 
         if (current.PayloadHash == existing.PayloadHash)
         {
