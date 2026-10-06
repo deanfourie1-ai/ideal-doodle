@@ -1,0 +1,185 @@
+@page "/customers/{CustomerId:guid}"
+@rendermode InteractiveServer
+@using BcReleasePlanPortal.Data
+@using BcReleasePlanPortal.Domain
+@using BcReleasePlanPortal.Domain.Matching
+@inject CustomerBoardService Boards
+
+<PageTitle>BC Release Plan Portal — @(_board?.Customer.Name ?? "Customer")</PageTitle>
+
+<div class="page page--wide">
+    @if (_board is null)
+    {
+        <p>@(_notFound ? "Customer not found." : "Loading…")</p>
+    }
+    else
+    {
+        <header>
+            <p class="breadcrumb"><a href="customers">Customers</a> /</p>
+            <h1>
+                @_board.Customer.Name
+                @if (_board.Customer.Flags.IsSample)
+                {
+                    <span class="sample-badge">Sample</span>
+                }
+            </h1>
+            <p class="subtitle">Decide what this customer does with each matched roadmap item. Decisions are kept even if a match later drops away, and they feed the customer's release plan.</p>
+        </header>
+
+        <div class="summary">
+            @foreach (var column in Columns)
+            {
+                <span><strong>@_board.Items.Count(i => i.Decision == column.Decision)</strong> @column.Label.ToLowerInvariant()</span>
+            }
+        </div>
+
+        @if (_error is not null)
+        {
+            <div class="error" role="alert">@_error</div>
+        }
+
+        <div class="board">
+            @foreach (var column in Columns)
+            {
+                var cards = _board.Items.Where(i => i.Decision == column.Decision).ToList();
+                <section class="board-column board-column--@column.Decision.ToString().ToLowerInvariant()">
+                    <h2>@column.Label <span class="count">@cards.Count</span></h2>
+                    <p class="column-hint">@column.Hint</p>
+
+                    @foreach (var card in cards)
+                    {
+                        var item = card.RoadmapItem!;
+                        <article class="board-card @(IsUrgent(item.ChangeType) ? "board-card--urgent" : "")" @key="card.Id">
+                            <div class="board-card-head">
+                                <span class="match-score" title="Match score">@card.MatchScore</span>
+                                <span class="change-type change-type--@item.ChangeType.ToString().ToLowerInvariant()">@item.ChangeType</span>
+                                @if (card.MatchScore < MatchScorer.CandidateThreshold)
+                                {
+                                    <span class="dropped-badge" title="Decided earlier, but the item no longer matches this customer's profile">no longer matches</span>
+                                }
+                            </div>
+                            <div class="board-card-title">
+                                @if (item.Url is not null)
+                                {
+                                    <a href="@item.Url" target="_blank" rel="noopener">@DisplayTitle(item.Title)</a>
+                                }
+                                else
+                                {
+                                    @DisplayTitle(item.Title)
+                                }
+                            </div>
+                            <div class="board-card-meta">
+                                @(item.TargetVersion is null ? "" : $"v{item.TargetVersion} · ")@(item.GaDate?.ToString("yyyy-MM") ?? "date unknown")
+                            </div>
+
+                            <details class="description">
+                                <summary>Why it matched</summary>
+                                <ul class="match-reasons">
+                                    @foreach (var reason in card.MatchReasons)
+                                    {
+                                        <li>@reason</li>
+                                    }
+                                </ul>
+                            </details>
+
+                            @if (_editingNoteId == card.Id)
+                            {
+                                <textarea class="note-editor" rows="3" @bind="_noteDraft" @bind:event="oninput" placeholder="Customer-specific note, e.g. what to test or who decides"></textarea>
+                                <div class="card-actions">
+                                    <button class="primary" @onclick="() => SaveNoteAsync(card)" disabled="@_busy">Save note</button>
+                                    <button @onclick="() => _editingNoteId = null" disabled="@_busy">Cancel</button>
+                                </div>
+                            }
+                            else
+                            {
+                                @if (!string.IsNullOrEmpty(card.OverrideNote))
+                                {
+                                    <p class="note">@card.OverrideNote</p>
+                                }
+                                <div class="card-actions">
+                                    @foreach (var target in Columns.Where(c => c.Decision != card.Decision))
+                                    {
+                                        <button @onclick="() => DecideAsync(card, target.Decision)" disabled="@_busy" title="Move to @target.Label">@target.Short</button>
+                                    }
+                                    <button class="link-button" @onclick="() => StartNote(card)" disabled="@_busy">@(string.IsNullOrEmpty(card.OverrideNote) ? "Add note" : "Edit note")</button>
+                                </div>
+                            }
+                        </article>
+                    }
+                </section>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid CustomerId { get; set; }
+
+    private sealed record Column(CustomerItemDecision Decision, string Label, string Short, string Hint);
+
+    private static readonly Column[] Columns =
+    [
+        new(CustomerItemDecision.Undecided, "Undecided", "Undecided", "Matched, not yet discussed"),
+        new(CustomerItemDecision.Adopt, "Adopt", "Adopt", "Take it on in this release"),
+        new(CustomerItemDecision.TestFirst, "Test first", "Test first", "Try in the sandbox before production"),
+        new(CustomerItemDecision.Ignore, "Ignore", "Ignore", "Not relevant for this customer"),
+        new(CustomerItemDecision.Blocked, "Blocked", "Blocked", "Can't proceed yet — waiting on something"),
+    ];
+
+    private CustomerBoardService.Board? _board;
+    private bool _notFound;
+    private bool _busy;
+    private string? _error;
+    private Guid? _editingNoteId;
+    private string _noteDraft = "";
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _board = await Boards.LoadAsync(CustomerId);
+        _notFound = _board is null;
+    }
+
+    private void StartNote(CustomerItem card)
+    {
+        _editingNoteId = card.Id;
+        _noteDraft = card.OverrideNote;
+    }
+
+    private Task DecideAsync(CustomerItem card, CustomerItemDecision decision) =>
+        RunAsync(() => Boards.DecideAsync(card.Id, decision));
+
+    private Task SaveNoteAsync(CustomerItem card) =>
+        RunAsync(async () =>
+        {
+            await Boards.SetNoteAsync(card.Id, _noteDraft);
+            _editingNoteId = null;
+        });
+
+    private async Task RunAsync(Func<Task> write)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await write();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Couldn't save: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static bool IsUrgent(RoadmapChangeType t) =>
+        t is RoadmapChangeType.BreakingChange or RoadmapChangeType.Deprecation or RoadmapChangeType.Retirement;
+
+    private static string DisplayTitle(string title) =>
+        title.StartsWith("Dynamics 365 Business Central: ", StringComparison.Ordinal) ? title["Dynamics 365 Business Central: ".Length..] : title;
+}

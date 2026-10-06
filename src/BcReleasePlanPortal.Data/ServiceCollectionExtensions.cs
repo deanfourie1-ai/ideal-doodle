@@ -18,6 +18,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRoadmapItemStore, RoadmapItemStore>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<RoadmapTriageService>();
+        services.AddSingleton<CustomerBoardService>();
 
         return services;
     }
