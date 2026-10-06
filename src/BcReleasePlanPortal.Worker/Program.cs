@@ -26,6 +26,24 @@ using (var scope = host.Services.CreateScope())
     await db.Database.MigrateAsync();
 }
 
+// --seed-customers <file>: load hand-maintained customer profiles (e.g. samples/customers.sample.json), then exit.
+var seedIndex = Array.IndexOf(args, "--seed-customers");
+if (seedIndex >= 0)
+{
+    if (seedIndex + 1 >= args.Length)
+    {
+        Console.Error.WriteLine("--seed-customers needs a JSON file path.");
+        Environment.ExitCode = 1;
+        return;
+    }
+
+    using var scope = host.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<BcReleasePlanDbContext>();
+    var seeded = await CustomerSeeder.SeedAsync(db, await File.ReadAllTextAsync(args[seedIndex + 1]));
+    Console.WriteLine($"Customers: {seeded.Added} added, {seeded.Updated} updated.");
+    return;
+}
+
 if (runOnce)
 {
     var ingestRunner = host.Services.GetRequiredService<DailyIngestBackgroundService>();

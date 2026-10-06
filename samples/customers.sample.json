@@ -1,0 +1,199 @@
+[
+  {
+    "Name": "Brightline Fabrication B.V. (sample)",
+    "TenantId": null,
+    "Environments": [
+      {
+        "Name": "Production",
+        "Version": "29.0",
+        "ScheduledUpdate": null,
+        "UpdateWindowEnds": null,
+        "Country": "NL"
+      },
+      {
+        "Name": "Sandbox",
+        "Version": "29.0",
+        "ScheduledUpdate": null,
+        "UpdateWindowEnds": null,
+        "Country": "NL"
+      }
+    ],
+    "ModulesInUse": [
+      "Finance",
+      "Sales",
+      "Purchasing",
+      "Warehouse",
+      "Manufacturing",
+      "Reporting",
+      "Localisation-NL"
+    ],
+    "AppSourceApps": [
+      {
+        "Publisher": "AMC Consult A/S",
+        "Name": "AMC Banking 365 Fundamentals",
+        "Version": null
+      },
+      {
+        "Publisher": "Continia Software",
+        "Name": "Document Capture",
+        "Version": null
+      }
+    ],
+    "CustomExtensions": [
+      {
+        "Name": "Brightline Production Extensions",
+        "Publisher": "Partner",
+        "ExtendsObjects": [
+          "Production Order",
+          "Prod. Order Routing Line",
+          "Routing Header",
+          "Capacity Ledger Entry",
+          "Item",
+          "Work Center"
+        ]
+      },
+      {
+        "Name": "Brightline Subcontracting",
+        "Publisher": "Partner",
+        "ExtendsObjects": [
+          "Purchase Header",
+          "Purchase Line",
+          "Subcontracting Worksheet",
+          "Transfer Header"
+        ]
+      }
+    ],
+    "Integrations": {
+      "ODataV4": true,
+      "Soap": true,
+      "SoapEndpoints": [
+        "ProductionOrders (shop-floor MES)",
+        "ItemJournal (shop-floor MES)"
+      ],
+      "ApiV2": false,
+      "Webhooks": false,
+      "PowerAutomate": false,
+      "Other": [
+        "Shop-floor MES over SOAP",
+        "Bank statement import via AMC Banking"
+      ]
+    },
+    "Flags": {
+      "UsesCopilot": false,
+      "MultiCompany": false,
+      "HasTestEnvironment": true,
+      "IsSample": true
+    },
+    "Contacts": [
+      {
+        "Name": "Sample contact",
+        "Role": "Finance & operations manager",
+        "Language": "nl"
+      },
+      {
+        "Name": "Sample contact",
+        "Role": "Production planner (key user)",
+        "Language": "nl"
+      }
+    ],
+    "ReviewCadence": "quarterly"
+  },
+  {
+    "Name": "Northgate Distribution B.V. (sample)",
+    "TenantId": null,
+    "Environments": [
+      {
+        "Name": "Production",
+        "Version": "29.0",
+        "ScheduledUpdate": null,
+        "UpdateWindowEnds": null,
+        "Country": "NL"
+      },
+      {
+        "Name": "Sandbox",
+        "Version": "29.0",
+        "ScheduledUpdate": null,
+        "UpdateWindowEnds": null,
+        "Country": "NL"
+      }
+    ],
+    "ModulesInUse": [
+      "Finance",
+      "Sales",
+      "Purchasing",
+      "Warehouse",
+      "Reporting",
+      "Dev/API",
+      "Localisation-NL"
+    ],
+    "AppSourceApps": [
+      {
+        "Publisher": "Microsoft",
+        "Name": "Shopify Connector",
+        "Version": null
+      },
+      {
+        "Publisher": "Continia Software",
+        "Name": "Document Output",
+        "Version": null
+      }
+    ],
+    "CustomExtensions": [
+      {
+        "Name": "Northgate Warehouse Extensions",
+        "Publisher": "Partner",
+        "ExtendsObjects": [
+          "Warehouse Shipment Header",
+          "Warehouse Activity Line",
+          "Transfer Header",
+          "Item",
+          "Location"
+        ]
+      },
+      {
+        "Name": "Northgate EDI & E-Invoicing",
+        "Publisher": "Partner",
+        "ExtendsObjects": [
+          "Sales Header",
+          "Sales Line",
+          "Customer",
+          "E-Document",
+          "Sales Invoice Header"
+        ]
+      }
+    ],
+    "Integrations": {
+      "ODataV4": true,
+      "Soap": false,
+      "SoapEndpoints": [],
+      "ApiV2": true,
+      "Webhooks": true,
+      "PowerAutomate": true,
+      "Other": [
+        "Peppol BIS 2.1",
+        "Finance reports API (beta)",
+        "EDI with retail customers (ORDERS/DESADV/INVOIC)",
+        "Shopify B2B"
+      ]
+    },
+    "Flags": {
+      "UsesCopilot": true,
+      "MultiCompany": true,
+      "HasTestEnvironment": true,
+      "IsSample": true
+    },
+    "Contacts": [
+      {
+        "Name": "Sample contact",
+        "Role": "Operations director",
+        "Language": "nl"
+      },
+      {
+        "Name": "Sample contact",
+        "Role": "Webshop & EDI coordinator (key user)",
+        "Language": "en"
+      }
+    ],
+    "ReviewCadence": "quarterly"
+  }
+]

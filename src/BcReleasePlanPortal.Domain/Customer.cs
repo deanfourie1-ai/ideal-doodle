@@ -66,6 +66,13 @@ public class CustomerIntegrations
     public bool ApiV2 { get; set; }
     public bool Webhooks { get; set; }
     public bool PowerAutomate { get; set; }
+
+    /// <summary>
+    /// Named APIs, standards and file formats the customer depends on that the flags above can't
+    /// express — e.g. "Peppol BIS 2.1", "Finance reports API (beta)". Written the way Microsoft
+    /// names them, so the match engine can look for them in roadmap and deprecation titles.
+    /// </summary>
+    public List<string> Other { get; set; } = [];
 }
 
 public class CustomerFlags
@@ -73,6 +80,13 @@ public class CustomerFlags
     public bool UsesCopilot { get; set; }
     public bool MultiCompany { get; set; }
     public bool HasTestEnvironment { get; set; }
+
+    /// <summary>
+    /// A made-up profile for building and testing the match engine and screens before real
+    /// customer data exists (see samples/customers.sample.json). Must never reach a published
+    /// release plan — Phase 4's publish step should refuse a sample customer.
+    /// </summary>
+    public bool IsSample { get; set; }
 }
 
 public class CustomerContact

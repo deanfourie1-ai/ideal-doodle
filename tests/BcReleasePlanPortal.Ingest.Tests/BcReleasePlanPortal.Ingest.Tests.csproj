@@ -31,6 +31,7 @@
   <ItemGroup>
     <None Include="Fixtures\**\*.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Fixtures\**\*.html" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\samples\*.json" Link="Samples\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
