@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace BcReleasePlanPortal.Ingest.Normalization;
 
 /// <summary>
@@ -9,30 +11,51 @@ namespace BcReleasePlanPortal.Ingest.Normalization;
 /// rather than guessing a module. Keyword sets are intentionally conservative (BC domain terms,
 /// not generic English words) since a false module tag is worse than none: it would route an
 /// item to the wrong customers' triage queues.
+/// <para>
+/// Keywords match whole words, allowing plural/verb endings ("report" matches "reports" and
+/// "reporting"); a trailing <c>*</c> marks a stem that may continue into any word ("manufactur*").
+/// Plain substring matching was tried first and failed on the first real BC data (2026-10-06):
+/// "sepa" matched "separate" and tagged 10 of 80 items Localisation-NL. "dutch" on its own was
+/// also dropped for "dutch locali*" — Microsoft lists Dutch among supported UI languages, which
+/// says nothing about the Dutch localisation.
+/// </para>
 /// </summary>
 public sealed class RuleBasedModuleClassifier : IModuleClassifier
 {
     private static readonly Dictionary<string, string[]> ModuleKeywords = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["Finance"] = ["general ledger", "bank reconciliation", "bank rec", "chart of accounts", "financial report", "currency", "vat", "fixed asset", "cash flow", "budget", "audit trail"],
+        ["Finance"] = ["general ledger", "bank reconciliation", "bank rec*", "chart of accounts", "financial report", "currency", "vat", "fixed asset", "cash flow", "budget", "audit trail"],
         ["Sales"] = ["sales order", "sales quote", "sales invoice", "customer", "crm", "sales price"],
         ["Purchasing"] = ["purchase order", "purchase invoice", "vendor", "requisition", "approval workflow"],
         ["Warehouse"] = ["warehouse", "license plate", "bin", "put-away", "pick", "inventory"],
-        ["Manufacturing"] = ["manufactur", "production order", "routing", "bill of material", "bom", "capacity planning"],
+        ["Manufacturing"] = ["manufactur*", "production order", "routing", "bill of material", "bom", "capacity planning"],
         ["Projects"] = ["project", "job planning", "job ledger", "time sheet"],
         ["Service"] = ["service order", "service item", "service contract", "field service"],
         ["Reporting"] = ["report", "statistics", "power bi", "analytics"],
         ["Dev/API"] = ["api", "odata", "soap", "extension", "al language", "codeunit", "web service", "webhook"],
         ["Admin"] = ["admin center", "tenant", "environment", "feature management", "feature key", "user management"],
-        ["Localisation-NL"] = ["netherlands", "dutch", "nl localiz", "sepa", "btw"],
+        ["Localisation-NL"] = ["netherlands", "dutch locali*", "nl locali*", "sepa", "btw"],
     };
+
+    private static readonly Dictionary<string, Regex[]> ModulePatterns = ModuleKeywords.ToDictionary(
+        kv => kv.Key,
+        kv => kv.Value.Select(ToPattern).ToArray(),
+        StringComparer.OrdinalIgnoreCase);
+
+    private static Regex ToPattern(string keyword)
+    {
+        var pattern = keyword.EndsWith('*')
+            ? $@"\b{Regex.Escape(keyword.TrimEnd('*'))}"
+            : $@"\b{Regex.Escape(keyword)}(?:s|es|ed|ing)?\b";
+        return new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    }
 
     public ModuleClassification Classify(string title, string description, IReadOnlyCollection<string> microsoftProductTags)
     {
         var haystack = $"{title}\n{description}\n{string.Join('\n', microsoftProductTags)}";
 
-        var matches = ModuleKeywords
-            .Where(kv => kv.Value.Any(keyword => haystack.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+        var matches = ModulePatterns
+            .Where(kv => kv.Value.Any(pattern => pattern.IsMatch(haystack)))
             .Select(kv => kv.Key)
             .ToList();
 

@@ -1,0 +1,37 @@
+{
+  "id": 573253,
+  "title": "Dynamics 365 Business Central: Expense Agent - More countries and languages",
+  "description": "Expense Agent supports more languages and regions, enabling an experience for users in all countries/regions where Business Central is available, and adding the following languages: Czech, Dutch, Finnish, Icelandic, Italian, Norwegian, and Swedish.",
+  "cloudInstances": [
+    "Worldwide (Standard Multi-Tenant)"
+  ],
+  "platforms": [
+    "Web"
+  ],
+  "releaseRings": [
+    "General Availability",
+    "Preview"
+  ],
+  "moreInfoUrls": [],
+  "products": [
+    "Dynamics 365 Business Central"
+  ],
+  "availabilities": [
+    {
+      "ring": "General Availability",
+      "year": 2026,
+      "month": "October"
+    },
+    {
+      "ring": "Preview",
+      "year": 2026,
+      "month": "October"
+    }
+  ],
+  "generalAvailabilityDate": "2026-10",
+  "previewAvailabilityDate": "2026-10",
+  "created": "2026-09-30T23:31:03.3895855Z",
+  "baseId": 573253,
+  "status": "In development",
+  "modified": "2026-09-30T23:31:03.3895855Z"
+}

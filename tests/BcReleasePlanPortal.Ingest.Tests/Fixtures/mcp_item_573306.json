@@ -1,0 +1,39 @@
+{
+  "id": 573306,
+  "title": "Dynamics 365 Business Central: Finance - Calculate multiple excise duties per item",
+  "description": "This feature enhances excise tax management by allowing multiple excise duty definitions to be associated with a single item and calculated during transactions.\nKey capabilities include:\n\nAssign multiple excise duty configurations to the same inventory item (i.e, item is liable for both plastic and sugar tax).\nAutomatically calculate all applicable excise duties during purchasing and vendor-related transactions.\nSupport complex tax scenarios where products are subject to more than one excise levy.\nReduce the need for manual workarounds, customizations, or separate item records to represent different tax obligations.\nImprove tax accuracy and consistency across purchasing, inventory valuation, and financial reporting processes.\n\nWith this enhancement, businesses can model real-world excise tax structures more effectively while maintaining compliance with local regulatory requirements. The system aggregates and applies all configured excise duties for an item, ensuring that tax amounts are calculated consistently and transparently throughout the transaction lifecycle.",
+  "cloudInstances": [
+    "Worldwide (Standard Multi-Tenant)"
+  ],
+  "platforms": [
+    "Android",
+    "iOS",
+    "Web"
+  ],
+  "releaseRings": [
+    "General Availability",
+    "Preview"
+  ],
+  "moreInfoUrls": [],
+  "products": [
+    "Dynamics 365 Business Central"
+  ],
+  "availabilities": [
+    {
+      "ring": "General Availability",
+      "year": 2027,
+      "month": "January"
+    },
+    {
+      "ring": "Preview",
+      "year": 2026,
+      "month": "October"
+    }
+  ],
+  "generalAvailabilityDate": "2027-01",
+  "previewAvailabilityDate": "2026-10",
+  "created": "2026-09-30T23:31:03.3895855Z",
+  "baseId": 573306,
+  "status": "In development",
+  "modified": "2026-09-30T23:31:03.3895855Z"
+}
