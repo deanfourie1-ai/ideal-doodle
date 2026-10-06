@@ -1,6 +1,7 @@
 @page "/customers"
 @using BcReleasePlanPortal.Data
 @using BcReleasePlanPortal.Domain
+@using BcReleasePlanPortal.Domain.Matching
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<BcReleasePlanDbContext> DbFactory
 
@@ -9,7 +10,7 @@
 <div class="page">
     <header>
         <h1>Customers</h1>
-        <p class="subtitle">The profiles the match engine scores roadmap items against. Read-only — profiles are maintained in a JSON file and loaded with <code>--seed-customers</code>.</p>
+        <p class="subtitle">Each profile with the roadmap items the match engine scored as relevant, and why. Read-only — profiles are maintained in a JSON file and loaded with <code>--seed-customers</code>.</p>
     </header>
 
     @if (_customers is null)
@@ -41,6 +42,33 @@
                         }
                         <span class="env">Review: @customer.ReviewCadence</span>
                     </div>
+
+                    <section class="matches">
+                        @{ var matches = _matches.GetValueOrDefault(customer.Id) ?? []; }
+                        <h3>Matched roadmap items (@matches.Count)</h3>
+                        @if (matches.Count == 0)
+                        {
+                            <p class="muted">Nothing scores @MatchScorer.CandidateThreshold or more yet.</p>
+                        }
+                        @foreach (var match in matches)
+                        {
+                            <div class="match @(IsUrgent(match.RoadmapItem!.ChangeType) ? "match--urgent" : "")">
+                                <span class="match-score" title="Match score — candidate from @MatchScorer.CandidateThreshold">@match.MatchScore</span>
+                                <div>
+                                    <div class="match-title">
+                                        @DisplayTitle(match.RoadmapItem.Title)
+                                        <span class="change-type change-type--@match.RoadmapItem.ChangeType.ToString().ToLowerInvariant()">@match.RoadmapItem.ChangeType</span>
+                                    </div>
+                                    <ul class="match-reasons">
+                                        @foreach (var reason in match.MatchReasons)
+                                        {
+                                            <li>@reason</li>
+                                        }
+                                    </ul>
+                                </div>
+                            </div>
+                        }
+                    </section>
 
                     <section>
                         <h3>Modules</h3>
@@ -126,10 +154,21 @@
 
 @code {
     private List<Customer>? _customers;
+    private Dictionary<Guid, List<CustomerItem>> _matches = [];
 
     protected override async Task OnInitializedAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         _customers = await db.Customers.AsNoTracking().OrderBy(c => c.Name).ToListAsync();
+        _matches = (await db.CustomerItems.AsNoTracking().Include(ci => ci.RoadmapItem).ToListAsync())
+            .Where(ci => ci.MatchScore >= MatchScorer.CandidateThreshold)
+            .GroupBy(ci => ci.CustomerId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(ci => ci.MatchScore).ThenBy(ci => ci.RoadmapItem!.Title).ToList());
     }
+
+    private static bool IsUrgent(RoadmapChangeType t) =>
+        t is RoadmapChangeType.BreakingChange or RoadmapChangeType.Deprecation or RoadmapChangeType.Retirement;
+
+    private static string DisplayTitle(string title) =>
+        title.StartsWith("Dynamics 365 Business Central: ", StringComparison.Ordinal) ? title["Dynamics 365 Business Central: ".Length..] : title;
 }

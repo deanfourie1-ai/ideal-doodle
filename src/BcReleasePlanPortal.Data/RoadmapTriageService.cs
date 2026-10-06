@@ -57,5 +57,9 @@ public sealed class RoadmapTriageService(IDbContextFactory<BcReleasePlanDbContex
             ?? throw new InvalidOperationException($"Roadmap item {itemId} not found.");
         change(item);
         await db.SaveChangesAsync(ct);
+
+        // Triage changes how much an item's module tags count for matching, so customers' lists
+        // are re-scored right away rather than at the next nightly run.
+        await MatchRunner.RunAsync(db, ct);
     }
 }

@@ -41,6 +41,8 @@ if (seedIndex >= 0)
     var db = scope.ServiceProvider.GetRequiredService<BcReleasePlanDbContext>();
     var seeded = await CustomerSeeder.SeedAsync(db, await File.ReadAllTextAsync(args[seedIndex + 1]));
     Console.WriteLine($"Customers: {seeded.Added} added, {seeded.Updated} updated.");
+    var matched = await MatchRunner.RunAsync(db);
+    Console.WriteLine($"Matching: {matched.Candidates} candidates ({matched.Added} new, {matched.Updated} rescored, {matched.Removed} dropped).");
     return;
 }
 

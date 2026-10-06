@@ -517,3 +517,58 @@ select {
     color: #6b7280;
     font-size: 12px;
 }
+
+/* Matches on the Customers page */
+
+.customer-card section.matches {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 6px;
+    background: #f9fafb;
+}
+
+.match {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0;
+    border-top: 1px solid #eef0f3;
+}
+
+.match:first-of-type {
+    border-top: none;
+}
+
+.match-score {
+    flex: none;
+    width: 34px;
+    height: 24px;
+    border-radius: 6px;
+    background: #e5e7eb;
+    color: #1f2937;
+    font-weight: 700;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.match--urgent .match-score {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.match-title {
+    font-weight: 600;
+}
+
+.match-title .change-type {
+    margin-left: 6px;
+    font-size: 11px;
+}
+
+.customer-card ul.match-reasons {
+    margin: 4px 0 0;
+    padding-left: 16px;
+    color: #4b5563;
+    font-size: 12px;
+}

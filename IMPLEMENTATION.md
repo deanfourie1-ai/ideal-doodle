@@ -71,7 +71,7 @@ Built in `src/BcReleasePlanPortal.Domain`, `src/BcReleasePlanPortal.Ingest`, `sr
 - ✅ Daily background job (`Worker/DailyIngestBackgroundService.cs`, 06:00 Europe/Amsterdam, configurable) + `dotnet run --run-once` for manual runs.
 - ✅ Teams webhook alerting for urgent changes (`Alerts/`), no-op/logged when no webhook URL is configured.
 - ✅ Config-driven product filters (`RoadmapIngest:ProductFilters` in `appsettings.json`) — not hardcoded to BC, ready for other Microsoft platforms per the "we sell them all" direction.
-- ✅ 87 unit tests, several built on real MCP responses captured live rather than fabricated fixtures.
+- ✅ 100 unit tests, several built on real MCP responses captured live rather than fabricated fixtures.
 - ✅ **Module classifier hardened against real BC data** (2026-10-06). The first BC ingest exposed plain substring matching: `sepa` hit "separate", `vat` hit "elevated"/"avatars", `bin` hit "combines", `al language` hit "natural language" — 17 wrong tags across 80 items, 11 of them `Localisation-NL`. Now whole-word matching (with plural/verb endings; a trailing `*` marks a stem), and bare `dutch` became `dutch locali*` because Microsoft lists Dutch among supported UI languages. Re-ingested from a fresh DB: all 17 wrong tags gone, no correct tags lost, `Localisation-NL` count 11 → 0, untagged items 11 → 17 (correct: no tag beats a wrong one). Regression tests use two of the real items as fixtures. Follow-up the same day: bare `customer` dropped from Sales (it alone tagged 11 of 13 Sales items — "customers can…" is in most descriptions); replaced by `sales document`, `sales return`, `customer card`, `customer ledger`. 9 wrong Sales tags removed; "Manage Shopify B2B companies, catalogs, and pricing" lost Sales too and now goes to triage untagged.
 - ✅ **Learn "What's new" source** (`Learn/HttpLearnPageSource.cs`, AngleSharp). Each run reads the two most recent major-update pages and sets `TargetVersion` by Roadmap ID — meaning the update a feature becomes **generally available** in; rows marked Public preview are skipped (29.0 lists Expense Agent features as preview whose GA is April 2027). Learn only ever sets or moves a version, never clears one, so a Learn outage can't look like Microsoft un-scheduling features; a first version is enrichment and raises no ChangeEvent, a version that moves does. Verified on the live data: 68 of 80 BC items get 29.0, the 11 in-development items and one preview-only item stay empty, a second run changes nothing. Viewer shows a Version column.
 - ✅ **Learn deprecated-features source** (2026-10-06). Each feature section of the deprecated-features page becomes its own item (`Source = LearnDeprecation`), from the current BC major version onward — earlier removals have already happened to every online tenant. Change type comes from the page's own words, so it's confident: "(removal)"/Removed → Retirement, "(warning)" → Deprecation, Moved → BehaviourChange, Replaced → Deprecation. `TargetVersion` from the wave heading (or derived: 2026 wave 2 = 29.0 — the formula reproduces every version the page prints), `GaDate` = wave start (April/October). External ID is version + title slug, not Learn's anchor, because Learn numbers duplicate anchors by position. A feature's warning and its later removal are separate items — two distinct events for a customer. Verified live: 4 items (Finance reports API warning in 29.0; AMC Fundamentals, Peppol BIS 2.x and Finance reports API removals in 30.0); second run is a no-op. Both sources share one persist/diff/alert path.
@@ -96,13 +96,33 @@ Built in `src/BcReleasePlanPortal.Domain`, `src/BcReleasePlanPortal.Ingest`, `sr
 
 **Goal (doc §7):** score `RoadmapItem × CustomerProfile`, explainable match reasons, tuned against real profiles.
 
-⬜ **Not started.**
+✅ **Built (2026-10-06), tuned against the two sample profiles — not yet against real ones.**
+
+- `Domain/Matching/MatchScorer.cs` — pure function, a reason string for every point. Candidate at **30**.
+
+  | Rule | Points | Source |
+  |---|---|---|
+  | Item modules ∩ modules in use — item triaged | +30 | doc |
+  | … — item not yet triaged (classifier guess) | +15 | tuned |
+  | Objects touched ∩ extended objects | +40 | doc (never fires yet: no `ObjectsTouched` source) |
+  | Customer publishes SOAP and item mentions SOAP | +40 | provisional |
+  | AppSource app named in the item title | +40 | provisional |
+  | `Integrations.Other` dependency named in the title | +40 | provisional |
+  | Customer uses Copilot and item is about Copilot/agents | +20 | provisional |
+  | Enabled automatically for users (and already relevant) | +10 | provisional (`EnabledBy` has no source) |
+  | Deprecation/retirement/breaking (and already relevant) | +20 | provisional |
+  | New capability/enhancement only in modules they don't use | −20 | provisional |
+
+  The design doc itself isn't in either repo; only the two "doc" weights were recorded here. The rest are provisional — set so one named dependency alone makes a candidate and urgency amplifies relevance but never creates it.
+- **Tuning on real data, kept for the record.** First run: 47 and 61 candidates, mostly "+30 uses Reporting" from unconfirmed classifier tags → unconfirmed module overlap now counts half, so triage is what turns module-only matches on (the triage screen re-scores immediately). Names now need *all* their distinctive words (two-of-three matched "Finance reports API" to "Trace G/L account usage in finance reports"); app and dependency names are matched on titles only. Only `bc` items are scored — profiles describe BC tenants; SharePoint/M365 items had matched on modules.
+- Result today: **Brightline** 3 candidates — AMC Fundamentals removal (60) on top; Finance reports API warning/removal (35, via Reporting). **Northgate** 19 — Shopify B2B (95), Finance reports API (75), Peppol BIS 2.x (60), EDI and the Shopify items (55), Copilot/agent items (35).
+- `Data/MatchRunner.cs` syncs `CustomerItem` rows: writes only score and reasons; never deletes a row someone has worked on (relevance, decision, note, owner); drops untouched rows that stop matching. Runs after every ingest (daily job and `--run-once`), after `--seed-customers`, and after every triage action.
+- Customers page lists each customer's candidates with score and reasons. Verified in Edge: confirming a Reporting item in triage adds it to Brightline's list immediately; reopening removes it.
 
 **Next steps:**
-1. Implement the scoring rules from §7 as a small, pure function (`modules ∩ modules_in_use` → +30, `objects_touched ∩ extends_objects` → +40, SOAP/ISV/version/enabled-by rules, new-capability-outside-scope penalty) producing a score + `match_reasons` list.
-2. Persist results into `CustomerItem.MatchScore`/`MatchReasons` — schema already exists (Phase 1).
-3. Sample profiles now exist (Phase 0) — enough to build and test against; real profiles before any customer sees output. `ObjectsTouched` is still empty, so the +40 rule will only fire once a source exists (Phase 1).
-4. Unit tests per rule, plus a golden-file test against a hand-built profile.
+1. Tune against real profiles (Phase 0) — every provisional weight above is a guess until then.
+2. A source for `ObjectsTouched` (Phase 1) to switch on the +40 object rule.
+3. Customers page is read-only; screening (`Relevance`) and decisions belong to the Phase 3 customer board.
 
 ---
 

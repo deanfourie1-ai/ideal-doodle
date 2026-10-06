@@ -1,3 +1,4 @@
+using BcReleasePlanPortal.Data;
 using BcReleasePlanPortal.Ingest;
 using BcReleasePlanPortal.Ingest.Configuration;
 using Microsoft.Extensions.Options;
@@ -47,6 +48,21 @@ public sealed class DailyIngestBackgroundService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Roadmap ingest run threw unexpectedly");
+        }
+
+        // Matching runs even if ingest failed: profiles may have changed, and the items already
+        // stored are still the best data available.
+        try
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BcReleasePlanDbContext>();
+            var match = await MatchRunner.RunAsync(db, ct);
+            logger.LogInformation(
+                "Matching complete: {Candidates} candidates ({Added} new, {Updated} rescored, {Removed} dropped)",
+                match.Candidates, match.Added, match.Updated, match.Removed);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Match run threw unexpectedly");
         }
     }
 
