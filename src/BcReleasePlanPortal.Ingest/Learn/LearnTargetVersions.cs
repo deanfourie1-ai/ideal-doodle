@@ -15,9 +15,11 @@ public static class LearnTargetVersions
     public static IReadOnlyList<string> MostRecentMajors(IReadOnlyList<string> versions, int count) =>
         versions
             .Where(v => v.EndsWith(".0", StringComparison.Ordinal))
-            .OrderBy(v => int.Parse(v.Split('.')[0], CultureInfo.InvariantCulture))
+            .OrderBy(MajorOf)
             .TakeLast(count)
             .ToList();
+
+    public static int MajorOf(string version) => int.Parse(version.Split('.')[0], CultureInfo.InvariantCulture);
 
     /// <summary>
     /// Roadmap ID → the update an item becomes generally available in. Rows marked as a preview are

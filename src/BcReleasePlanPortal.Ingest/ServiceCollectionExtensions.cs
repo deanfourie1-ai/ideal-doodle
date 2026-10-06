@@ -35,6 +35,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IChangeClassifier, RuleBasedChangeClassifier>();
         services.AddSingleton<IModuleClassifier, RuleBasedModuleClassifier>();
         services.AddSingleton<RoadmapItemNormalizer>();
+        services.AddSingleton<LearnDeprecationNormalizer>();
         services.AddHttpClient<ILearnPageSource, HttpLearnPageSource>((sp, client) =>
         {
             var options = sp.GetRequiredService<IOptions<RoadmapIngestOptions>>().Value;

@@ -30,6 +30,9 @@ public sealed class RoadmapIngestOptions
     /// </summary>
     public int LearnMajorVersionsToRead { get; set; } = 2;
 
+    /// <summary>Internal product the Learn deprecated-features items are filed under (Learn's pages are BC-only).</summary>
+    public string LearnInternalProduct { get; set; } = "bc";
+
     /// <summary>Incoming webhook URL for the Teams alert channel (design doc §6 step 6). Null = log-only.</summary>
     public string? TeamsWebhookUrl { get; set; }
 

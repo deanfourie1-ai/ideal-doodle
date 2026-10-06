@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
 using Microsoft.Extensions.Logging;
@@ -55,12 +56,97 @@ public sealed partial class HttpLearnPageSource(HttpClient httpClient, ILogger<H
         }
     }
 
-    public Task<LearnPageResult> FetchDeprecatedFeaturesAsync(CancellationToken ct)
+    public const string DeprecatedFeaturesPath = "upgrade/deprecated-features-w1";
+
+    public async Task<LearnDeprecationResult> FetchDeprecatedFeaturesAsync(CancellationToken ct)
     {
-        const string reason = "Deprecated-features parsing is not implemented yet.";
-        logger.LogWarning("Learn deprecated-features fetch skipped: {Reason}", reason);
-        return Task.FromResult(new LearnPageResult(Available: false, Items: [], UnavailableReason: reason));
+        try
+        {
+            var html = await httpClient.GetStringAsync(DeprecatedFeaturesPath, ct);
+            var result = ParseDeprecatedFeatures(html, new Uri(httpClient.BaseAddress!, DeprecatedFeaturesPath).ToString());
+            if (!result.Available)
+            {
+                logger.LogWarning("Learn deprecated-features page not parsed: {Reason}", result.UnavailableReason);
+            }
+
+            return result;
+        }
+        catch (HttpRequestException ex)
+        {
+            logger.LogWarning(ex, "Learn deprecated-features page could not be fetched");
+            return new LearnDeprecationResult(false, [], $"Fetch failed: {ex.Message}");
+        }
     }
+
+    /// <summary>
+    /// Deprecated-features page, as observed 2026-10-06: an h2 per release wave ("Changes in 2027
+    /// release wave 1 (version 30.0)" — the version is not always printed), then per feature an h3
+    /// followed by a table with columns "Moved, Removed, or Replaced?" / "Why?". Most tables have
+    /// one row; a few have several, which are folded into one item.
+    /// </summary>
+    public static LearnDeprecationResult ParseDeprecatedFeatures(string html, string pageUrl)
+    {
+        var document = new HtmlParser().ParseDocument(html);
+        var root = (IParentNode?)document.QuerySelector("main") ?? document;
+
+        var items = new List<LearnDeprecation>();
+        (int Year, int Number, string Version)? wave = null;
+        (string Title, string? Anchor)? feature = null;
+
+        foreach (var element in root.QuerySelectorAll("h2, h3, table"))
+        {
+            switch (element)
+            {
+                case IHtmlHeadingElement { LocalName: "h2" } h2:
+                    var match = WaveHeadingPattern().Match(h2.TextContent);
+                    wave = match.Success
+                        ? (int.Parse(match.Groups["year"].Value, CultureInfo.InvariantCulture),
+                           int.Parse(match.Groups["wave"].Value, CultureInfo.InvariantCulture),
+                           match.Groups["version"].Success ? match.Groups["version"].Value : VersionForWave(
+                               int.Parse(match.Groups["year"].Value, CultureInfo.InvariantCulture),
+                               int.Parse(match.Groups["wave"].Value, CultureInfo.InvariantCulture)))
+                        : null;
+                    feature = null;
+                    break;
+
+                case IHtmlHeadingElement h3:
+                    feature = (h3.TextContent.Trim(), h3.Id);
+                    break;
+
+                case IHtmlTableElement table when wave is not null && feature is not null
+                    && HeaderCells(table).FirstOrDefault()?.StartsWith("Moved", StringComparison.OrdinalIgnoreCase) == true:
+                    var rows = table.Bodies.SelectMany(b => b.Rows)
+                        .Select(r => r.Cells.Select(c => c.TextContent.Trim()).ToList())
+                        .Where(cells => cells.Count >= 2)
+                        .ToList();
+                    if (rows.Count == 0)
+                    {
+                        break;
+                    }
+
+                    items.Add(new LearnDeprecation(
+                        Title: feature.Value.Title,
+                        Url: feature.Value.Anchor is null ? pageUrl : $"{pageUrl}#{feature.Value.Anchor}",
+                        WaveYear: wave.Value.Year,
+                        WaveNumber: wave.Value.Number,
+                        Version: wave.Value.Version,
+                        State: string.Join(", ", rows.Select(r => r[0]).Distinct()),
+                        Description: string.Join("\n\n", rows.Select(r => r[1]))));
+                    feature = null;
+                    break;
+            }
+        }
+
+        return items.Count == 0
+            ? new LearnDeprecationResult(false, [], "No release-wave sections with feature tables found.")
+            : new LearnDeprecationResult(true, items, null);
+    }
+
+    /// <summary>
+    /// BC's major version for a release wave: two per year, 2022 wave 2 = 21, 2026 wave 1 = 28,
+    /// 2027 wave 1 = 30 (all three printed on the live page). Used when a wave heading omits it.
+    /// </summary>
+    public static string VersionForWave(int year, int wave) => $"{(2 * year) + wave - 4025}.0";
 
     public static string WhatsNewPath(string version) => $"whatsnew/whatsnew-update-{version.Replace('.', '-')}";
 
@@ -124,6 +210,9 @@ public sealed partial class HttpLearnPageSource(HttpClient httpClient, ILogger<H
 
     [GeneratedRegex(@"whatsnew-update-(\d+)-(\d+)")]
     private static partial Regex TocVersionPattern();
+
+    [GeneratedRegex(@"Changes in (?<year>\d{4}) release wave (?<wave>[12])(?:\s*\(version (?<version>\d+\.\d+)\))?", RegexOptions.IgnoreCase)]
+    private static partial Regex WaveHeadingPattern();
 
     [GeneratedRegex(@"^\d+$")]
     private static partial Regex RoadmapIdPattern();

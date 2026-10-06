@@ -15,6 +15,20 @@ public sealed record LearnPageItem(
 
 public sealed record LearnPageResult(bool Available, IReadOnlyList<LearnPageItem> Items, string? UnavailableReason);
 
+/// <summary>One feature section of the deprecated-features page.</summary>
+/// <param name="Version">BC major version the change lands in, e.g. "30.0" — from the wave heading.</param>
+/// <param name="State">"Moved", "Removed" or "Replaced", as printed; several values joined when a section has several rows.</param>
+public sealed record LearnDeprecation(
+    string Title,
+    string Url,
+    int WaveYear,
+    int WaveNumber,
+    string Version,
+    string State,
+    string Description);
+
+public sealed record LearnDeprecationResult(bool Available, IReadOnlyList<LearnDeprecation> Items, string? UnavailableReason);
+
 /// <summary>
 /// Design doc §6 step 3: scrape "What's new and changed in update N" and the deprecated
 /// features pages on Microsoft Learn — the only source for <see cref="Domain.RoadmapItem.ObjectsTouched"/>
@@ -28,5 +42,5 @@ public interface ILearnPageSource
 
     Task<LearnPageResult> FetchWhatsNewAsync(string version, CancellationToken ct);
 
-    Task<LearnPageResult> FetchDeprecatedFeaturesAsync(CancellationToken ct);
+    Task<LearnDeprecationResult> FetchDeprecatedFeaturesAsync(CancellationToken ct);
 }

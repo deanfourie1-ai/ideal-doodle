@@ -22,6 +22,7 @@ namespace BcReleasePlanPortal.Ingest;
 public sealed class RoadmapIngestService(
     IRoadmapMcpClient mcpClient,
     RoadmapItemNormalizer normalizer,
+    LearnDeprecationNormalizer deprecationNormalizer,
     IRoadmapItemStore store,
     IIngestAlertSink alertSink,
     ILearnPageSource learnPageSource,
@@ -33,7 +34,8 @@ public sealed class RoadmapIngestService(
     {
         var now = timeProvider.GetUtcNow();
         var result = new IngestRunResult { StartedAt = now };
-        var learnTargetVersions = await LoadLearnTargetVersionsAsync(ct);
+        var learnVersions = await ListLearnVersionsAsync(ct);
+        var learnTargetVersions = await LoadLearnTargetVersionsAsync(learnVersions, ct);
 
         foreach (var filter in options.Value.ProductFilters)
         {
@@ -51,6 +53,17 @@ public sealed class RoadmapIngestService(
                 // over an all-or-nothing daily job.
                 logger.LogError(ex, "Ingest failed for product {Product}", filter.InternalProduct);
             }
+        }
+
+        var deprecationResult = new ProductIngestResult { InternalProduct = $"{options.Value.LearnInternalProduct} (Learn deprecations)" };
+        result.Products.Add(deprecationResult);
+        try
+        {
+            await IngestLearnDeprecationsAsync(learnVersions, now, deprecationResult, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Ingest failed for Learn deprecations");
         }
 
         result.FinishedAt = timeProvider.GetUtcNow();
@@ -92,43 +105,7 @@ public sealed class RoadmapIngestService(
                 current.TargetVersion = targetVersion;
                 current.PayloadHash = PayloadHasher.Compute(current);
 
-                if (isNew)
-                {
-                    await store.UpsertAsync(current, ct);
-                    productResult.ItemsNew++;
-                    continue;
-                }
-
-                current.Id = existing!.Id;
-                current.FirstSeenAt = existing.FirstSeenAt;
-
-                if (current.PayloadHash == existing.PayloadHash)
-                {
-                    // Microsoft touched metadata we don't track (e.g. internal re-save) —
-                    // nothing worth diffing, just refresh our bookkeeping.
-                    existing.LastSeenAt = now;
-                    existing.SourceModifiedAt = current.SourceModifiedAt;
-                    await store.UpsertAsync(existing, ct);
-                    continue;
-                }
-
-                var events = ChangeEventDetector.Detect(existing, current, now);
-                foreach (var changeEvent in events)
-                {
-                    changeEvent.RoadmapItemId = current.Id;
-                }
-
-                await store.UpsertAsync(current, ct);
-                await store.AddChangeEventsAsync(events, ct);
-                productResult.ItemsUpdated++;
-                productResult.ChangeEventsEmitted += events.Count;
-
-                var alreadyPublished = await store.IsReferencedByAnyReleasePlanAsync(current.Id, ct);
-                if (ChangeEventDetector.RequiresImmediateAlert(current, events, alreadyPublished))
-                {
-                    await alertSink.SendAsync(current, events, ct);
-                    productResult.AlertsSent++;
-                }
+                await PersistAsync(existing, current, now, productResult, ct);
             }
 
             if (!page.HasMore)
@@ -141,16 +118,111 @@ public sealed class RoadmapIngestService(
     }
 
     /// <summary>
+    /// Deprecated-features sections from the current BC major version onward, each as its own
+    /// item. Earlier waves' removals have already happened to every online tenant, so they're
+    /// history, not plan input. No Learn version list means no "current" to compare against, so
+    /// the pass is skipped rather than guessing.
+    /// </summary>
+    private async Task IngestLearnDeprecationsAsync(IReadOnlyList<string>? learnVersions, DateTimeOffset now, ProductIngestResult productResult, CancellationToken ct)
+    {
+        var currentMajor = learnVersions is null ? null : LearnTargetVersions.MostRecentMajors(learnVersions, 1).FirstOrDefault();
+        if (currentMajor is null)
+        {
+            logger.LogWarning("Learn deprecations skipped: current BC version unknown");
+            return;
+        }
+
+        var page = await learnPageSource.FetchDeprecatedFeaturesAsync(ct);
+        if (!page.Available)
+        {
+            return;
+        }
+
+        var currentMajorNumber = LearnTargetVersions.MajorOf(currentMajor);
+        foreach (var deprecation in page.Items.Where(d => LearnTargetVersions.MajorOf(d.Version) >= currentMajorNumber))
+        {
+            productResult.ItemsSeen++;
+            var current = deprecationNormalizer.Normalize(deprecation, options.Value.LearnInternalProduct, currentMajorNumber, now);
+            var existing = await store.FindAsync(RoadmapItemSource.LearnDeprecation, current.ExternalId, ct);
+            await PersistAsync(existing, current, now, productResult, ct);
+        }
+    }
+
+    /// <summary>
+    /// Shared tail of both sources: insert a new item, or diff a changed one into ChangeEvents and
+    /// alert on anything urgent (design doc §6 steps 5–6).
+    /// </summary>
+    private async Task PersistAsync(RoadmapItem? existing, RoadmapItem current, DateTimeOffset now, ProductIngestResult productResult, CancellationToken ct)
+    {
+        if (existing is null)
+        {
+            await store.UpsertAsync(current, ct);
+            productResult.ItemsNew++;
+            return;
+        }
+
+        current.Id = existing.Id;
+        current.FirstSeenAt = existing.FirstSeenAt;
+
+        if (current.PayloadHash == existing.PayloadHash)
+        {
+            // Microsoft touched metadata we don't track (e.g. internal re-save) —
+            // nothing worth diffing, just refresh our bookkeeping.
+            existing.LastSeenAt = now;
+            existing.SourceModifiedAt = current.SourceModifiedAt;
+            await store.UpsertAsync(existing, ct);
+            return;
+        }
+
+        var events = ChangeEventDetector.Detect(existing, current, now);
+        foreach (var changeEvent in events)
+        {
+            changeEvent.RoadmapItemId = current.Id;
+        }
+
+        await store.UpsertAsync(current, ct);
+        await store.AddChangeEventsAsync(events, ct);
+        productResult.ItemsUpdated++;
+        productResult.ChangeEventsEmitted += events.Count;
+
+        var alreadyPublished = await store.IsReferencedByAnyReleasePlanAsync(current.Id, ct);
+        if (ChangeEventDetector.RequiresImmediateAlert(current, events, alreadyPublished))
+        {
+            await alertSink.SendAsync(current, events, ct);
+            productResult.AlertsSent++;
+        }
+    }
+
+    /// <summary>Every update version Learn lists, or null when Learn can't be reached.</summary>
+    private async Task<IReadOnlyList<string>?> ListLearnVersionsAsync(CancellationToken ct)
+    {
+        try
+        {
+            var versions = await learnPageSource.ListWhatsNewVersionsAsync(ct);
+            return versions.Count == 0 ? null : versions;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Learn version list unavailable");
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Roadmap ID → BC update version, from the "What's new" pages of the most recent major updates.
     /// Null when Learn can't be read at all, so callers keep each item's known version rather than
     /// wiping it — a Learn outage must never look like Microsoft un-scheduling 80 features.
     /// </summary>
-    private async Task<IReadOnlyDictionary<string, string>?> LoadLearnTargetVersionsAsync(CancellationToken ct)
+    private async Task<IReadOnlyDictionary<string, string>?> LoadLearnTargetVersionsAsync(IReadOnlyList<string>? learnVersions, CancellationToken ct)
     {
+        if (learnVersions is null)
+        {
+            return null;
+        }
+
         try
         {
-            var majors = LearnTargetVersions.MostRecentMajors(
-                await learnPageSource.ListWhatsNewVersionsAsync(ct), options.Value.LearnMajorVersionsToRead);
+            var majors = LearnTargetVersions.MostRecentMajors(learnVersions, options.Value.LearnMajorVersionsToRead);
 
             var pages = new List<(string Version, LearnPageResult Page)>();
             foreach (var version in majors)
