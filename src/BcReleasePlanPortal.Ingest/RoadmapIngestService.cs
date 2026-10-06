@@ -3,6 +3,7 @@ using BcReleasePlanPortal.Domain.Abstractions;
 using BcReleasePlanPortal.Ingest.Alerts;
 using BcReleasePlanPortal.Ingest.Configuration;
 using BcReleasePlanPortal.Ingest.Diffing;
+using BcReleasePlanPortal.Ingest.Learn;
 using BcReleasePlanPortal.Ingest.Mcp;
 using BcReleasePlanPortal.Ingest.Normalization;
 using Microsoft.Extensions.Logging;
@@ -23,6 +24,7 @@ public sealed class RoadmapIngestService(
     RoadmapItemNormalizer normalizer,
     IRoadmapItemStore store,
     IIngestAlertSink alertSink,
+    ILearnPageSource learnPageSource,
     IOptions<RoadmapIngestOptions> options,
     TimeProvider timeProvider,
     ILogger<RoadmapIngestService> logger)
@@ -31,6 +33,7 @@ public sealed class RoadmapIngestService(
     {
         var now = timeProvider.GetUtcNow();
         var result = new IngestRunResult { StartedAt = now };
+        var learnTargetVersions = await LoadLearnTargetVersionsAsync(ct);
 
         foreach (var filter in options.Value.ProductFilters)
         {
@@ -39,7 +42,7 @@ public sealed class RoadmapIngestService(
 
             try
             {
-                await IngestProductAsync(filter, now, productResult, ct);
+                await IngestProductAsync(filter, learnTargetVersions, now, productResult, ct);
             }
             catch (Exception ex)
             {
@@ -57,7 +60,7 @@ public sealed class RoadmapIngestService(
         return result;
     }
 
-    private async Task IngestProductAsync(ProductFilter filter, DateTimeOffset now, ProductIngestResult productResult, CancellationToken ct)
+    private async Task IngestProductAsync(ProductFilter filter, IReadOnlyDictionary<string, string>? learnTargetVersions, DateTimeOffset now, ProductIngestResult productResult, CancellationToken ct)
     {
         var skip = 0;
         while (true)
@@ -71,7 +74,9 @@ public sealed class RoadmapIngestService(
                 var existing = await store.FindAsync(RoadmapItemSource.Roadmap, externalId, ct);
 
                 var isNew = existing is null;
-                var isTouchedSinceLastSeen = existing is not null && existing.SourceModifiedAt != summary.Modified;
+                var targetVersion = LearnTargetVersions.Resolve(learnTargetVersions, externalId, existing?.TargetVersion);
+                var isTouchedSinceLastSeen = existing is not null
+                    && (existing.SourceModifiedAt != summary.Modified || existing.TargetVersion != targetVersion);
 
                 if (!isNew && !isTouchedSinceLastSeen)
                 {
@@ -84,6 +89,8 @@ public sealed class RoadmapIngestService(
 
                 var hydrated = await mcpClient.GetRoadmapByIdAsync(externalId, ct);
                 var current = normalizer.Normalize(hydrated, filter.InternalProduct, now);
+                current.TargetVersion = targetVersion;
+                current.PayloadHash = PayloadHasher.Compute(current);
 
                 if (isNew)
                 {
@@ -130,6 +137,41 @@ public sealed class RoadmapIngestService(
             }
 
             skip += page.ReturnedCount;
+        }
+    }
+
+    /// <summary>
+    /// Roadmap ID → BC update version, from the "What's new" pages of the most recent major updates.
+    /// Null when Learn can't be read at all, so callers keep each item's known version rather than
+    /// wiping it — a Learn outage must never look like Microsoft un-scheduling 80 features.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, string>?> LoadLearnTargetVersionsAsync(CancellationToken ct)
+    {
+        try
+        {
+            var majors = LearnTargetVersions.MostRecentMajors(
+                await learnPageSource.ListWhatsNewVersionsAsync(ct), options.Value.LearnMajorVersionsToRead);
+
+            var pages = new List<(string Version, LearnPageResult Page)>();
+            foreach (var version in majors)
+            {
+                pages.Add((version, await learnPageSource.FetchWhatsNewAsync(version, ct)));
+            }
+
+            if (!pages.Any(p => p.Page.Available))
+            {
+                logger.LogWarning("No Learn 'what's new' page could be read; target versions left as they were");
+                return null;
+            }
+
+            var map = LearnTargetVersions.Build(pages);
+            logger.LogInformation("Learn: {Count} roadmap IDs mapped to updates {Versions}", map.Count, string.Join(", ", majors));
+            return map;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Learn target versions unavailable; target versions left as they were");
+            return null;
         }
     }
 }

@@ -43,12 +43,12 @@ Unaffected by this: `CustomerContact.Language` still records a real person's own
 
 - ✅ Confirmed live, against the real server (2026-08-30): `https://www.microsoft.com/releasecommunications/mcp` works exactly as documented — JSON-RPC over a single-POST "streamable HTTP" call, 4 read-only tools (`get_recent_m365_roadmaps`, `get_m365_roadmap_by_id`, `get_recent_azure_updates`, `get_azure_update_by_id`), no auth.
 - ✅ **Business Central is now on the MCP server** (confirmed 2026-10-06). On 2026-08-30 the dataset was Microsoft 365 + Azure only (1775 items, 36 products) and BC was absent. On 2026-09-30 Microsoft published 80 items tagged `Dynamics 365 Business Central` (69 Launched with GA 2026-10; 11 In development with GA 2026-10 → 2027-04), so the doc's "September 2026" premise held. The tag matches the existing `bc` entry in `RoadmapIngest:ProductFilters` exactly, so no code change was needed. First real ingest run (2026-10-06): 82 seen / 82 new (80 BC + 2 Power Automate demo), paging via `skip` past the 50-item limit worked.
-- ⬜ Learn "what's new"/deprecated-features page shape — not confirmed. `learn.microsoft.com` is blocked by this environment's network policy; never reachable to inspect.
+- ✅ Learn page shapes confirmed live (2026-10-06, from a dev machine — the earlier block was the build environment's network policy, not Learn). Major-update "What's new" pages (x.0) have a feature table with a **Roadmap ID** column — an exact join to roadmap items. Minor updates (x.1–x.5) have a feature table without IDs. `toc.json` lists every update page, so versions are discovered, not configured. The deprecated-features page is one long page of per-wave sections (h2 per wave, h3 per feature, a "Moved/Removed/Replaced? | Why?" table each) with no roadmap IDs. Release plans stopped in September 2026 (Microsoft moved BC onto the AI at Work roadmap), which removes the only source `EnabledBy` ever had.
 - ⬜ Hand-built customer profiles — not done. The `Customer` schema exists (Phase 1; the doc's separate `CustomerProfile` is folded into it as owned value objects) but there is no real profile data.
 
 **Next steps:**
 1. ~~Re-check the MCP roadmap dataset for a BC product tag~~ — done, see above. Consider dropping the `power_automate_demo` filter now that BC has live data.
-2. From a machine that can reach `learn.microsoft.com`, capture real HTML for one "What's new and changed in update N" page and one deprecated-features page, then implement `ILearnPageSource` for real (see Phase 1 notes).
+2. ~~Capture real Learn HTML~~ — done; fixtures in `tests/.../Fixtures/learn_*`.
 3. Hand-build 2 real `Customer` profiles once real customer data is available (not fixture data).
 
 ---
@@ -57,7 +57,7 @@ Unaffected by this: `CustomerContact.Language` still records a real person's own
 
 **Goal (doc):** schema, daily job, hash/diff, ChangeEvent, Learn scrapers.
 
-✅ **Done**, except the Learn scrapers.
+✅ **Done**, except the deprecated-features half of the Learn scrapers.
 
 Built in `src/BcReleasePlanPortal.Domain`, `src/BcReleasePlanPortal.Ingest`, `src/BcReleasePlanPortal.Data`, `src/BcReleasePlanPortal.Worker`:
 
@@ -68,13 +68,15 @@ Built in `src/BcReleasePlanPortal.Domain`, `src/BcReleasePlanPortal.Ingest`, `sr
 - ✅ Daily background job (`Worker/DailyIngestBackgroundService.cs`, 06:00 Europe/Amsterdam, configurable) + `dotnet run --run-once` for manual runs.
 - ✅ Teams webhook alerting for urgent changes (`Alerts/`), no-op/logged when no webhook URL is configured.
 - ✅ Config-driven product filters (`RoadmapIngest:ProductFilters` in `appsettings.json`) — not hardcoded to BC, ready for other Microsoft platforms per the "we sell them all" direction.
-- ✅ 35 unit tests, several built on real MCP responses captured live rather than fabricated fixtures.
+- ✅ 52 unit tests, several built on real MCP responses captured live rather than fabricated fixtures.
 - ✅ **Module classifier hardened against real BC data** (2026-10-06). The first BC ingest exposed plain substring matching: `sepa` hit "separate", `vat` hit "elevated"/"avatars", `bin` hit "combines", `al language` hit "natural language" — 17 wrong tags across 80 items, 11 of them `Localisation-NL`. Now whole-word matching (with plural/verb endings; a trailing `*` marks a stem), and bare `dutch` became `dutch locali*` because Microsoft lists Dutch among supported UI languages. Re-ingested from a fresh DB: all 17 wrong tags gone, no correct tags lost, `Localisation-NL` count 11 → 0, untagged items 11 → 17 (correct: no tag beats a wrong one). Regression tests use two of the real items as fixtures.
-- ⬜ **Learn scrapers** (`Learn/UnavailableLearnPageSource.cs`) — deliberate stub. `learn.microsoft.com` unreachable from this environment, so no CSS selectors were guessed at. This is also why `RoadmapItem.TargetVersion`, `ObjectsTouched`, and `EnabledBy` stay empty/Unknown for every item ingested so far — those fields only exist on Learn pages, not the MCP/roadmap API.
+- ✅ **Learn "What's new" source** (`Learn/HttpLearnPageSource.cs`, AngleSharp). Each run reads the two most recent major-update pages and sets `TargetVersion` by Roadmap ID — meaning the update a feature becomes **generally available** in; rows marked Public preview are skipped (29.0 lists Expense Agent features as preview whose GA is April 2027). Learn only ever sets or moves a version, never clears one, so a Learn outage can't look like Microsoft un-scheduling features; a first version is enrichment and raises no ChangeEvent, a version that moves does. Verified on the live data: 68 of 80 BC items get 29.0, the 11 in-development items and one preview-only item stay empty, a second run changes nothing. Viewer shows a Version column.
+- ⬜ **Learn deprecated-features source** — `FetchDeprecatedFeaturesAsync` still returns unavailable. Next: ingest each feature section as its own `RoadmapItem` (`Source = LearnDeprecation`).
+- ⚠️ **`EnabledBy` has no source any more** — it came from release plans, which Microsoft stopped publishing in September 2026. Stays `Unknown` for new items. `ObjectsTouched` isn't on the "What's new" pages either; deprecation prose names objects only in free text.
 
 **Next steps:**
-1. Implement `ILearnPageSource` for real once the pages are reachable and inspected (see Phase 0).
-2. Wire `TargetVersion`/`ObjectsTouched`/`EnabledBy` into `RoadmapItemNormalizer` once a Learn source exists — this is what makes the match engine's highest-value signal (§7: `objects_touched ∩ extends_objects` → +40) possible.
+1. Deprecated-features parsing (above).
+2. Find a source for `ObjectsTouched` — the match engine's highest-value signal (§7: `objects_touched ∩ extends_objects` → +40). Learn has none in structured form; candidates are the deprecation prose (fuzzy) or AL symbol/obsolete-tag data from Microsoft's base app (structured, needs investigation).
 3. Note for future DB upgrades: re-ingest only re-normalizes items Microsoft has modified, so a classifier change does not reach existing rows. Fine while no curation exists (the DB was simply rebuilt); once ImpactNotes/CustomerItems hold real work, a classifier change needs an explicit re-classify step instead.
 4. Expect every BC item to come back `Enhancement` + `NeedsConfirmation` from the change classifier (by design — no deprecation/retirement/breaking keywords in this wave); triage will be fully manual until the rules or an LLM pass improve.
 5. Decide the .NET 9 question: this runs on .NET 8 because 9's SDK wasn't available via this environment's package sources. Revisit on a machine/environment where it is, or explicitly commit to 8 LTS.

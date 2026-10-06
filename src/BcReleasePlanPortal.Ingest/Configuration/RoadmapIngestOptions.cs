@@ -21,6 +21,15 @@ public sealed class RoadmapIngestOptions
 
     public List<ProductFilter> ProductFilters { get; set; } = [];
 
+    /// <summary>Business Central dev-itpro root on Learn; must end in "/" so relative page paths resolve under it.</summary>
+    public string LearnBaseUrl { get; set; } = "https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/";
+
+    /// <summary>
+    /// How many of the most recent major updates' "What's new" pages to read for target versions.
+    /// Two covers the current wave plus the previous one, which is where anything still in flight lives.
+    /// </summary>
+    public int LearnMajorVersionsToRead { get; set; } = 2;
+
     /// <summary>Incoming webhook URL for the Teams alert channel (design doc §6 step 6). Null = log-only.</summary>
     public string? TeamsWebhookUrl { get; set; }
 

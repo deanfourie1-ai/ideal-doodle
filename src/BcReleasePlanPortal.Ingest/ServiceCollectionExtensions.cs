@@ -35,7 +35,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IChangeClassifier, RuleBasedChangeClassifier>();
         services.AddSingleton<IModuleClassifier, RuleBasedModuleClassifier>();
         services.AddSingleton<RoadmapItemNormalizer>();
-        services.AddSingleton<ILearnPageSource, UnavailableLearnPageSource>();
+        services.AddHttpClient<ILearnPageSource, HttpLearnPageSource>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptions<RoadmapIngestOptions>>().Value;
+            client.BaseAddress = new Uri(options.LearnBaseUrl);
+        });
         services.AddSingleton<TimeProvider>(TimeProvider.System);
 
         services.AddSingleton<IIngestAlertSink>(sp =>

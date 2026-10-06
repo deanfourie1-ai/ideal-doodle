@@ -46,6 +46,7 @@
                     <th>Modules</th>
                     <th>Change type</th>
                     <th>Status</th>
+                    <th>Version</th>
                     <th>GA date</th>
                     <th>Last seen</th>
                 </tr>
@@ -79,6 +80,7 @@
                             }
                         </td>
                         <td>@item.Status</td>
+                        <td>@(item.TargetVersion ?? "—")</td>
                         <td>@(item.GaDate?.ToString("yyyy-MM-dd") ?? "—")</td>
                         <td>@item.LastSeenAt.ToString("yyyy-MM-dd HH:mm")</td>
                     </tr>

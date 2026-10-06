@@ -32,7 +32,13 @@ public static class ChangeEventDetector
         Compare(nameof(RoadmapItem.Title), previous.Title, current.Title);
         Compare(nameof(RoadmapItem.Status), previous.Status, current.Status);
         Compare(nameof(RoadmapItem.ChangeType), previous.ChangeType, current.ChangeType);
-        Compare(nameof(RoadmapItem.TargetVersion), previous.TargetVersion, current.TargetVersion);
+        // TargetVersion arrives from Learn after the item itself, so its first appearance is
+        // enrichment, not news. Only a version that moves (e.g. 29.0 → 30.0) is a change.
+        if (previous.TargetVersion is not null)
+        {
+            Compare(nameof(RoadmapItem.TargetVersion), previous.TargetVersion, current.TargetVersion);
+        }
+
         Compare(nameof(RoadmapItem.PreviewDate), previous.PreviewDate, current.PreviewDate);
         Compare(nameof(RoadmapItem.GaDate), previous.GaDate, current.GaDate);
         Compare(nameof(RoadmapItem.EnabledBy), previous.EnabledBy, current.EnabledBy);

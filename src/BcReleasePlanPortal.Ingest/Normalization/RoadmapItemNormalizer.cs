@@ -13,8 +13,9 @@ namespace BcReleasePlanPortal.Ingest.Normalization;
 /// <see cref="RoadmapItem.TargetVersion"/>, <see cref="RoadmapItem.ObjectsTouched"/> and
 /// <see cref="RoadmapItem.EnabledBy"/> are BC/Dynamics-specific concepts the doc expects to
 /// come from the Learn "what's new"/deprecated-features scrapers (§6 step 3), which are a
-/// separate, not-yet-reachable source (see <c>Learn.ILearnPageSource</c>). They're left at
-/// their empty/Unknown defaults here rather than guessed.
+/// separate source (see <c>Learn.ILearnPageSource</c>). They're left at
+/// their empty/Unknown defaults here rather than guessed; <c>RoadmapIngestService</c> then sets
+/// TargetVersion from Learn by Roadmap ID.
 /// </summary>
 public sealed class RoadmapItemNormalizer(IChangeClassifier changeClassifier, IModuleClassifier moduleClassifier)
 {
