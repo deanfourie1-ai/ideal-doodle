@@ -19,6 +19,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<RoadmapTriageService>();
         services.AddSingleton<CustomerBoardService>();
+        services.AddSingleton<ImpactNoteService>();
 
         return services;
     }

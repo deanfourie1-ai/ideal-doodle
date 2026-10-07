@@ -1,0 +1,76 @@
+@page "/impact-notes"
+@using BcReleasePlanPortal.Data
+@using BcReleasePlanPortal.Domain
+@inject ImpactNoteService Notes
+
+<PageTitle>BC Release Plan Portal — Impact notes</PageTitle>
+
+<div class="page">
+    <header>
+        <h1>Impact notes</h1>
+        <p class="subtitle">One explanation per roadmap item, written once and reused for every customer it affects. Listed here: every item that's on at least one customer's decision board.</p>
+    </header>
+
+    @if (_items is null)
+    {
+        <p>Loading…</p>
+    }
+    else if (_items.Count == 0)
+    {
+        <p class="empty">No roadmap item matches a customer yet. Matches appear on the Customers page once customer profiles are loaded.</p>
+    }
+    else
+    {
+        <div class="summary">
+            <span><strong>@_items.Count</strong> items affect a customer</span>
+            <span class="needs-confirmation"><strong>@_items.Count(i => i.Status == ImpactNoteStatus.None)</strong> without a note</span>
+            <span><strong>@_items.Count(i => i.Status == ImpactNoteStatus.Draft)</strong> draft</span>
+            <span class="urgent"><strong>@_items.Count(i => i.Status == ImpactNoteStatus.ChangedSinceReview)</strong> changed since review</span>
+            <span class="triaged"><strong>@_items.Count(i => i.Status == ImpactNoteStatus.Reviewed)</strong> reviewed</span>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Change type</th>
+                    <th>Version</th>
+                    <th>Customers</th>
+                    <th>Note</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var work in _items)
+                {
+                    <tr>
+                        <td>
+                            <div class="title"><a href="impact-notes/@work.Item.Id">@DisplayTitle(work.Item.Title)</a></div>
+                        </td>
+                        <td><span class="change-type change-type--@work.Item.ChangeType.ToString().ToLowerInvariant()">@work.Item.ChangeType</span></td>
+                        <td class="nowrap">@(work.Item.TargetVersion ?? "—")</td>
+                        <td class="nowrap">@work.CustomersAffected</td>
+                        <td class="nowrap"><span class="note-status note-status--@work.Status.ToString().ToLowerInvariant()">@StatusLabel(work.Status)</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<ImpactNoteService.WorkItem>? _items;
+
+    protected override async Task OnInitializedAsync() => _items = await Notes.ListAsync();
+
+    public static string StatusLabel(ImpactNoteStatus status) => status switch
+    {
+        ImpactNoteStatus.None => "No note",
+        ImpactNoteStatus.Draft => "Draft",
+        ImpactNoteStatus.Reviewed => "Reviewed",
+        ImpactNoteStatus.ChangedSinceReview => "Changed since review",
+        _ => status.ToString(),
+    };
+
+    private static string DisplayTitle(string title) =>
+        title.StartsWith("Dynamics 365 Business Central: ", StringComparison.Ordinal) ? title["Dynamics 365 Business Central: ".Length..] : title;
+}

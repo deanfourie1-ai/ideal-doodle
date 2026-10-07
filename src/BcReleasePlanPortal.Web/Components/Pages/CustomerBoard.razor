@@ -69,7 +69,7 @@
                                 }
                             </div>
                             <div class="board-card-meta">
-                                @(item.TargetVersion is null ? "" : $"v{item.TargetVersion} · ")@(item.GaDate?.ToString("yyyy-MM") ?? "date unknown")
+                                @(item.TargetVersion is null ? "" : $"v{item.TargetVersion} · ")@(item.GaDate?.ToString("yyyy-MM") ?? "date unknown") · <a href="impact-notes/@item.Id">Impact note</a>
                             </div>
 
                             <details class="description">

@@ -1,0 +1,209 @@
+@page "/impact-notes/{ItemId:guid}"
+@rendermode InteractiveServer
+@using BcReleasePlanPortal.Data
+@using BcReleasePlanPortal.Domain
+@inject ImpactNoteService Notes
+
+<PageTitle>BC Release Plan Portal — Impact note</PageTitle>
+
+<div class="page">
+    @if (_editor is null)
+    {
+        <p>@(_notFound ? "Roadmap item not found." : "Loading…")</p>
+    }
+    else
+    {
+        var item = _editor.Item;
+        <header>
+            <p class="breadcrumb"><a href="impact-notes">Impact notes</a> /</p>
+            <h1>@DisplayTitle(item.Title)</h1>
+            <div class="item-facts">
+                <span class="change-type change-type--@item.ChangeType.ToString().ToLowerInvariant()">@item.ChangeType</span>
+                <span>@(item.TargetVersion is null ? "Version not known" : $"v{item.TargetVersion}")</span>
+                <span>GA @(item.GaDate?.ToString("yyyy-MM") ?? "date unknown")</span>
+                <span>@item.Status</span>
+                @if (item.Modules.Count > 0)
+                {
+                    <span>@string.Join(", ", item.Modules)</span>
+                }
+                <span class="note-status note-status--@_editor.Status.ToString().ToLowerInvariant()">@ImpactNotes.StatusLabel(_editor.Status)</span>
+                @if (item.Url is not null)
+                {
+                    <a href="@item.Url" target="_blank" rel="noopener">Microsoft's page ↗</a>
+                }
+            </div>
+        </header>
+
+        @if (_editor.ChangesSinceReview.Count > 0)
+        {
+            <div class="error" role="alert">
+                <div>
+                    <strong>Microsoft changed this item after the note was reviewed.</strong>
+                    <ul class="changes">
+                        @foreach (var change in _editor.ChangesSinceReview)
+                        {
+                            <li>@change.Field: @(change.OldValue ?? "—") → @(change.NewValue ?? "—")</li>
+                        }
+                    </ul>
+                    Check the note still holds, then mark it reviewed again.
+                </div>
+            </div>
+        }
+
+        <div class="note-layout">
+            <section class="note-main">
+                <details class="description" open="@(_editor.Note is null)">
+                    <summary>Microsoft's description</summary>
+                    <p>@(string.IsNullOrWhiteSpace(item.DescriptionRaw) ? "No description published." : item.DescriptionRaw)</p>
+                </details>
+
+                <form class="note-form" @onsubmit:preventDefault="true">
+                    <label for="summary">Summary <span class="hint">2–4 sentences a customer can read: what changes.</span></label>
+                    <textarea id="summary" rows="4" @bind="_summary" @bind:event="oninput"></textarea>
+
+                    <label for="why">Why it matters <span class="hint">What it means for a customer's processes, integrations or users.</span></label>
+                    <textarea id="why" rows="3" @bind="_why" @bind:event="oninput"></textarea>
+
+                    <label for="action">Action required <span class="hint">What someone must actually do, and by when. Leave empty if nothing.</span></label>
+                    <textarea id="action" rows="3" @bind="_action" @bind:event="oninput"></textarea>
+
+                    <div class="note-selects">
+                        <div>
+                            <label for="effort">Effort</label>
+                            <select id="effort" @bind="_effort">
+                                <option value="@EffortBand.None">None</option>
+                                <option value="@EffortBand.S">S</option>
+                                <option value="@EffortBand.M">M</option>
+                                <option value="@EffortBand.L">L</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="risk">Risk</label>
+                            <select id="risk" @bind="_risk">
+                                <option value="@RiskLevel.Low">Low</option>
+                                <option value="@RiskLevel.Medium">Medium</option>
+                                <option value="@RiskLevel.High">High</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    @if (_error is not null)
+                    {
+                        <div class="error" role="alert">@_error</div>
+                    }
+                    @if (_saved is not null)
+                    {
+                        <div class="last-action" role="status">@_saved</div>
+                    }
+
+                    <div class="form-actions">
+                        <button type="button" @onclick="SaveDraftAsync" disabled="@_busy">Save draft</button>
+                        <button type="button" class="primary" @onclick="MarkReviewedAsync" disabled="@_busy">Mark reviewed</button>
+                        @if (_editor.Note?.ReviewedAt is { } reviewedAt)
+                        {
+                            <span class="muted">Reviewed @reviewedAt.ToLocalTime().ToString("d MMM yyyy HH:mm")</span>
+                        }
+                    </div>
+                </form>
+            </section>
+
+            <aside class="note-side">
+                <h2>Affects @_editor.Customers.Count @(_editor.Customers.Count == 1 ? "customer" : "customers")</h2>
+                @if (_editor.Customers.Count == 0)
+                {
+                    <p class="muted">No customer's board has this item.</p>
+                }
+                @foreach (var customer in _editor.Customers)
+                {
+                    <div class="affected">
+                        <div class="affected-head">
+                            <a href="customers/@customer.CustomerId">@customer.Name</a>
+                        </div>
+                        <div class="affected-meta">
+                            <span class="match-score">@customer.MatchScore</span>
+                            <span class="decision decision--@customer.Decision.ToString().ToLowerInvariant()">@DecisionLabel(customer.Decision)</span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(customer.OverrideNote))
+                        {
+                            <p class="note">@customer.OverrideNote</p>
+                        }
+                    </div>
+                }
+            </aside>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid ItemId { get; set; }
+
+    private ImpactNoteService.Editor? _editor;
+    private bool _notFound;
+    private bool _busy;
+    private string? _error;
+    private string? _saved;
+
+    private string _summary = "";
+    private string _why = "";
+    private string _action = "";
+    private EffortBand _effort;
+    private RiskLevel _risk;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+        var note = _editor?.Note;
+        _summary = note?.Summary ?? "";
+        _why = note?.WhyItMatters ?? "";
+        _action = note?.ActionRequired ?? "";
+        _effort = note?.EffortBand ?? EffortBand.None;
+        _risk = note?.Risk ?? RiskLevel.Low;
+    }
+
+    private async Task LoadAsync()
+    {
+        _editor = await Notes.LoadAsync(ItemId);
+        _notFound = _editor is null;
+    }
+
+    private ImpactNoteService.Draft CurrentDraft() => new(_summary, _why, _action, _effort, _risk);
+
+    private Task SaveDraftAsync() => RunAsync(() => Notes.SaveDraftAsync(ItemId, CurrentDraft()), "Draft saved. It won't go into a release plan until it's marked reviewed.");
+
+    private Task MarkReviewedAsync() => RunAsync(() => Notes.MarkReviewedAsync(ItemId, CurrentDraft()), "Saved and marked reviewed.");
+
+    private async Task RunAsync(Func<Task> write, string message)
+    {
+        _busy = true;
+        _error = null;
+        _saved = null;
+        try
+        {
+            await write();
+            await LoadAsync();
+            _saved = message;
+        }
+        catch (ArgumentException ex)
+        {
+            _error = ex.Message.Split(" (Parameter")[0];
+        }
+        catch (Exception ex)
+        {
+            _error = $"Couldn't save: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string DecisionLabel(CustomerItemDecision d) => d switch
+    {
+        CustomerItemDecision.TestFirst => "Test first",
+        _ => d.ToString(),
+    };
+
+    private static string DisplayTitle(string title) =>
+        title.StartsWith("Dynamics 365 Business Central: ", StringComparison.Ordinal) ? title["Dynamics 365 Business Central: ".Length..] : title;
+}
