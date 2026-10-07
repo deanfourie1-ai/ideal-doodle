@@ -10,7 +10,8 @@
 <div class="page">
     <header>
         <h1>Customers</h1>
-        <p class="subtitle">Each profile with the roadmap items the match engine scored as relevant, and why. Read-only — profiles are maintained in a JSON file and loaded with <code>--seed-customers</code>.</p>
+        <p class="subtitle">Each profile with the roadmap items the match engine scored as relevant, and why.</p>
+        <div class="form-actions"><a class="button button--primary" href="customers/new">+ Add customer</a></div>
     </header>
 
     @if (_customers is null)
@@ -19,7 +20,7 @@
     }
     else if (_customers.Count == 0)
     {
-        <p class="empty">No customers yet. Run <code>dotnet run --project src/BcReleasePlanPortal.Worker -- --seed-customers samples/customers.sample.json</code>.</p>
+        <p class="empty">No customers yet. Use <strong>+ Add customer</strong> to add the first one.</p>
     }
     else
     {
@@ -35,6 +36,7 @@
                         }
                         <a class="board-link" href="customers/@customer.Id">Decision board →</a>
                         <a class="board-link board-link--next" href="customers/@customer.Id/release-plan">Release plan →</a>
+                        <a class="board-link board-link--next" href="customers/@customer.Id/edit">Edit</a>
                     </header>
 
                     <div class="environments">

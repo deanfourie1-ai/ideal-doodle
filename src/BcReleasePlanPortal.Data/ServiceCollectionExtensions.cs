@@ -20,6 +20,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<RoadmapTriageService>();
         services.AddSingleton<CustomerBoardService>();
         services.AddSingleton<ImpactNoteService>();
+        services.AddSingleton<CustomerProfileService>();
 
         return services;
     }

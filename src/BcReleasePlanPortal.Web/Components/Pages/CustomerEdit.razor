@@ -1,0 +1,334 @@
+@page "/customers/new"
+@page "/customers/{CustomerId:guid}/edit"
+@rendermode InteractiveServer
+@using BcReleasePlanPortal.Data
+@using BcReleasePlanPortal.Domain
+@inject CustomerProfileService Profiles
+@inject NavigationManager Navigation
+
+<PageTitle>BC Release Plan Portal — @(IsNew ? "Add customer" : "Edit customer")</PageTitle>
+
+<div class="page">
+    <header>
+        <p class="breadcrumb"><a href="customers">Customers</a> /</p>
+        <h1>@(IsNew ? "Add customer" : $"Edit {_originalName}")</h1>
+        <p class="subtitle">The match engine scores every roadmap item against this profile. The more precise the apps, extensions and dependencies, the better the matches. Saving rescores straight away.</p>
+    </header>
+
+    @if (_notFound)
+    {
+        <p>Customer not found.</p>
+    }
+    else if (_loaded)
+    {
+        <form class="profile-form" @onsubmit="SaveAsync" @onsubmit:preventDefault="true">
+            <section class="profile-section">
+                <h2>Customer</h2>
+                <div class="field">
+                    <label for="name">Name</label>
+                    <input id="name" @bind="_form.Name" @bind:event="oninput" placeholder="e.g. Van Dijk Metaal B.V." />
+                </div>
+                <div class="field field--narrow">
+                    <label for="cadence">Review cadence</label>
+                    <select id="cadence" @bind="_form.ReviewCadence">
+                        <option value="monthly">Monthly</option>
+                        <option value="quarterly">Quarterly</option>
+                        <option value="half-yearly">Half-yearly</option>
+                    </select>
+                </div>
+            </section>
+
+            <section class="profile-section">
+                <h2>Environments</h2>
+                <p class="section-hint">The production version is what removals are compared against ("production is on 29.0").</p>
+                @for (var i = 0; i < _form.Environments.Count; i++)
+                {
+                    var env = _form.Environments[i];
+                    var index = i;
+                    <div class="row-fields">
+                        <input @bind="env.Name" aria-label="Environment name" placeholder="Environment" />
+                        <input @bind="env.Version" aria-label="BC version" placeholder="Version" class="short" />
+                        <input @bind="env.Country" aria-label="Country" placeholder="Country" class="short" />
+                        <button type="button" class="link-button" @onclick="() => _form.Environments.RemoveAt(index)">Remove</button>
+                    </div>
+                }
+                <button type="button" @onclick="() => _form.Environments.Add(new CustomerEnvironment())">+ Add environment</button>
+            </section>
+
+            <section class="profile-section">
+                <h2>Modules in use</h2>
+                <div class="checks">
+                    @foreach (var module in BcModules.All)
+                    {
+                        <label>
+                            <input type="checkbox" checked="@_form.ModulesInUse.Contains(module)" @onchange="e => Toggle(_form.ModulesInUse, module, (bool)e.Value!)" />
+                            @module
+                        </label>
+                    }
+                </div>
+            </section>
+
+            <section class="profile-section">
+                <h2>AppSource and ISV apps</h2>
+                <p class="section-hint">Use the app's name as Microsoft and the publisher write it, so removals and changes naming it are matched (e.g. "AMC Banking 365 Fundamentals").</p>
+                @for (var i = 0; i < _form.Apps.Count; i++)
+                {
+                    var app = _form.Apps[i];
+                    var index = i;
+                    <div class="row-fields">
+                        <input @bind="app.Name" aria-label="App name" placeholder="App name" />
+                        <input @bind="app.Publisher" aria-label="Publisher" placeholder="Publisher" />
+                        <button type="button" class="link-button" @onclick="() => _form.Apps.RemoveAt(index)">Remove</button>
+                    </div>
+                }
+                <button type="button" @onclick="() => _form.Apps.Add(new CustomerAppSourceApp())">+ Add app</button>
+            </section>
+
+            <section class="profile-section">
+                <h2>Custom extensions</h2>
+                <p class="section-hint">List the BC tables and pages each extension extends, separated by commas (e.g. Sales Header, Item, Production Order).</p>
+                @for (var i = 0; i < _form.Extensions.Count; i++)
+                {
+                    var ext = _form.Extensions[i];
+                    var index = i;
+                    <div class="row-fields">
+                        <input @bind="ext.Name" aria-label="Extension name" placeholder="Extension name" />
+                        <input @bind="ext.Objects" aria-label="Extends objects" placeholder="Extends: Sales Header, Item" class="wide" />
+                        <button type="button" class="link-button" @onclick="() => _form.Extensions.RemoveAt(index)">Remove</button>
+                    </div>
+                }
+                <button type="button" @onclick="() => _form.Extensions.Add(new ExtensionRow())">+ Add extension</button>
+            </section>
+
+            <section class="profile-section">
+                <h2>Integrations</h2>
+                <div class="checks">
+                    <label><input type="checkbox" @bind="_form.Integrations.ODataV4" /> OData v4</label>
+                    <label><input type="checkbox" @bind="_form.Integrations.ApiV2" /> API v2</label>
+                    <label><input type="checkbox" @bind="_form.Integrations.Webhooks" /> Webhooks</label>
+                    <label><input type="checkbox" @bind="_form.Integrations.PowerAutomate" /> Power Automate</label>
+                    <label><input type="checkbox" @bind="_form.Integrations.Soap" /> SOAP</label>
+                </div>
+                @if (_form.Integrations.Soap)
+                {
+                    <div class="field">
+                        <label for="soap">SOAP endpoints <span class="hint">comma-separated</span></label>
+                        <input id="soap" @bind="_form.SoapEndpoints" placeholder="e.g. SalesOrders (webshop), ItemJournal (scanner)" />
+                    </div>
+                }
+                <div class="field">
+                    <label for="other">Also depends on <span class="hint">one per line, written as Microsoft names them</span></label>
+                    <textarea id="other" rows="3" @bind="_form.Other" placeholder="Peppol BIS 3.0&#10;Finance reports API (beta)&#10;EDI"></textarea>
+                </div>
+            </section>
+
+            <section class="profile-section">
+                <h2>Flags</h2>
+                <div class="checks">
+                    <label><input type="checkbox" @bind="_form.Flags.UsesCopilot" /> Uses Copilot</label>
+                    <label><input type="checkbox" @bind="_form.Flags.MultiCompany" /> Multi-company</label>
+                    <label><input type="checkbox" @bind="_form.Flags.HasTestEnvironment" /> Has a test environment</label>
+                </div>
+            </section>
+
+            <section class="profile-section">
+                <h2>Contacts</h2>
+                @for (var i = 0; i < _form.Contacts.Count; i++)
+                {
+                    var contact = _form.Contacts[i];
+                    var index = i;
+                    <div class="row-fields">
+                        <input @bind="contact.Role" aria-label="Role" placeholder="Role, e.g. Finance manager" />
+                        <input @bind="contact.Name" aria-label="Contact name" placeholder="Name" />
+                        <select @bind="contact.Language" aria-label="Language" class="short">
+                            <option value="en">English</option>
+                            <option value="nl">Dutch</option>
+                        </select>
+                        <button type="button" class="link-button" @onclick="() => _form.Contacts.RemoveAt(index)">Remove</button>
+                    </div>
+                }
+                <button type="button" @onclick="() => _form.Contacts.Add(new CustomerContact())">+ Add contact</button>
+            </section>
+
+            @if (_error is not null)
+            {
+                <div class="error" role="alert">@_error</div>
+            }
+
+            <div class="form-actions">
+                <button type="submit" class="primary" disabled="@_busy">@(IsNew ? "Add customer" : "Save changes")</button>
+                <a class="button" href="@(IsNew ? "customers" : $"customers/{CustomerId}")">Cancel</a>
+            </div>
+        </form>
+
+        @if (!IsNew)
+        {
+            <section class="danger-zone">
+                <h2>Delete customer</h2>
+                <p>Removes the profile, its matches and every decision and note on its board. A customer with a published release plan can't be deleted.</p>
+                @if (_confirmDelete)
+                {
+                    <div class="form-actions">
+                        <button type="button" class="danger" @onclick="DeleteAsync" disabled="@_busy">Yes, delete @_originalName</button>
+                        <button type="button" @onclick="() => _confirmDelete = false">Keep it</button>
+                    </div>
+                }
+                else
+                {
+                    <button type="button" @onclick="() => _confirmDelete = true">Delete customer…</button>
+                }
+            </section>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid? CustomerId { get; set; }
+
+    private bool IsNew => CustomerId is null;
+
+    private sealed class ExtensionRow
+    {
+        public string Name { get; set; } = "";
+        public string Objects { get; set; } = "";
+        public string? Publisher { get; set; }
+    }
+
+    private sealed class FormModel
+    {
+        public string Name { get; set; } = "";
+        public string ReviewCadence { get; set; } = "quarterly";
+        public List<CustomerEnvironment> Environments { get; set; } = [];
+        public List<string> ModulesInUse { get; set; } = [];
+        public List<CustomerAppSourceApp> Apps { get; set; } = [];
+        public List<ExtensionRow> Extensions { get; set; } = [];
+        public CustomerIntegrations Integrations { get; set; } = new();
+        public string SoapEndpoints { get; set; } = "";
+        public string Other { get; set; } = "";
+        public CustomerFlags Flags { get; set; } = new();
+        public List<CustomerContact> Contacts { get; set; } = [];
+    }
+
+    private FormModel _form = new();
+    private string _originalName = "";
+    private bool _loaded;
+    private bool _notFound;
+    private bool _busy;
+    private bool _confirmDelete;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsNew)
+        {
+            _form = new FormModel
+            {
+                Environments = [new CustomerEnvironment { Name = "Production", Country = "NL" }, new CustomerEnvironment { Name = "Sandbox", Country = "NL" }],
+                Contacts = [new CustomerContact()],
+            };
+            _loaded = true;
+            return;
+        }
+
+        var customer = await Profiles.LoadAsync(CustomerId!.Value);
+        if (customer is null)
+        {
+            _notFound = true;
+            return;
+        }
+
+        _originalName = customer.Name;
+        _form = new FormModel
+        {
+            Name = customer.Name,
+            ReviewCadence = customer.ReviewCadence,
+            Environments = customer.Environments,
+            ModulesInUse = customer.ModulesInUse,
+            Apps = customer.AppSourceApps,
+            Extensions = customer.CustomExtensions.Select(e => new ExtensionRow { Name = e.Name, Objects = string.Join(", ", e.ExtendsObjects), Publisher = e.Publisher }).ToList(),
+            Integrations = customer.Integrations,
+            SoapEndpoints = string.Join(", ", customer.Integrations.SoapEndpoints),
+            Other = string.Join("\n", customer.Integrations.Other),
+            Flags = customer.Flags,
+            Contacts = customer.Contacts,
+        };
+        _loaded = true;
+    }
+
+    private static void Toggle(List<string> list, string value, bool on)
+    {
+        if (on && !list.Contains(value)) list.Add(value);
+        if (!on) list.Remove(value);
+    }
+
+    private Customer ToCustomer()
+    {
+        var integrations = _form.Integrations;
+        integrations.SoapEndpoints = integrations.Soap ? Split(_form.SoapEndpoints, ',') : [];
+        integrations.Other = Split(_form.Other, '\n');
+        return new Customer
+        {
+            Name = _form.Name,
+            ReviewCadence = _form.ReviewCadence,
+            Environments = _form.Environments,
+            // Kept in taxonomy order so the profile reads the same everywhere.
+            ModulesInUse = BcModules.All.Where(_form.ModulesInUse.Contains).ToList(),
+            AppSourceApps = _form.Apps,
+            CustomExtensions = _form.Extensions.Select(e => new CustomerExtension { Name = e.Name.Trim(), Publisher = e.Publisher ?? "Partner", ExtendsObjects = Split(e.Objects, ',') }).ToList(),
+            Integrations = integrations,
+            Flags = _form.Flags,
+            Contacts = _form.Contacts,
+        };
+    }
+
+    private static List<string> Split(string text, char separator) =>
+        text.Split(separator).Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            if (IsNew)
+            {
+                var id = await Profiles.CreateAsync(ToCustomer());
+                Navigation.NavigateTo($"customers/{id}");
+            }
+            else
+            {
+                await Profiles.UpdateAsync(CustomerId!.Value, ToCustomer());
+                Navigation.NavigateTo($"customers/{CustomerId}");
+            }
+        }
+        catch (ArgumentException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await Profiles.DeleteAsync(CustomerId!.Value);
+            Navigation.NavigateTo("customers");
+        }
+        catch (InvalidOperationException ex)
+        {
+            _error = ex.Message;
+            _confirmDelete = false;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}
