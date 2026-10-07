@@ -48,13 +48,22 @@ public class ReleasePlanLine
 
     public string Summary { get; set; } = string.Empty;
 
+    public string WhyItMatters { get; set; } = string.Empty;
+
     public string Action { get; set; } = string.Empty;
 
+    /// <summary>The customer-specific addendum (<see cref="CustomerItem.OverrideNote"/>), frozen with the rest.</summary>
+    public string CustomerNote { get; set; } = string.Empty;
+
     public RoadmapChangeType ChangeType { get; set; }
+
+    public string? TargetVersion { get; set; }
 
     public DateOnly? GaDate { get; set; }
 
     public EffortBand EffortBand { get; set; }
+
+    public RiskLevel Risk { get; set; }
 
     public CustomerItemDecision Decision { get; set; }
 

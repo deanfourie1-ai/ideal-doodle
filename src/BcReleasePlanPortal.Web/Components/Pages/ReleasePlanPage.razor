@@ -1,0 +1,180 @@
+@page "/customers/{CustomerId:guid}/release-plan"
+@rendermode InteractiveServer
+@using BcReleasePlanPortal.Domain
+@using BcReleasePlanPortal.Publishing
+@inject ReleasePlanService Plans
+
+<PageTitle>BC Release Plan Portal — Release plan</PageTitle>
+
+<div class="page">
+    @if (_readiness is null)
+    {
+        <p>@(_notFound ? "Customer not found." : "Loading…")</p>
+    }
+    else
+    {
+        var customer = _readiness.Customer;
+        <header>
+            <p class="breadcrumb"><a href="customers">Customers</a> / <a href="customers/@customer.Id">@customer.Name</a> /</p>
+            <h1>
+                Release plan
+                @if (customer.Flags.IsSample)
+                {
+                    <span class="sample-badge">Sample</span>
+                }
+            </h1>
+            <p class="subtitle">The Word document @customer.Name receives: every mandatory change, plus what was decided to adopt, test or park. Preview it at any time; publishing freezes it as a numbered version.</p>
+        </header>
+
+        <div class="plan-panel">
+            <div class="plan-field">
+                <label for="period">Period</label>
+                <input id="period" @bind="_period" @bind:event="oninput" />
+            </div>
+
+            <div class="plan-counts">
+                <span><strong>@_readiness.Lines.Count(l => l.Section == PlanSection.Mandatory)</strong> mandatory</span>
+                <span><strong>@_readiness.Lines.Count(l => l.Section == PlanSection.Recommended)</strong> recommended</span>
+                <span><strong>@_readiness.Lines.Count(l => l.Section == PlanSection.ForInformation)</strong> for information</span>
+            </div>
+
+            <div class="form-actions">
+                <a class="button" href="@PreviewHref" download>Download preview (.docx)</a>
+                <button class="primary" @onclick="PublishAsync" disabled="@(_busy || _readiness.Blockers.Count > 0)">Publish version @_readiness.NextVersion</button>
+            </div>
+
+            @if (_readiness.Blockers.Count > 0)
+            {
+                <div class="blockers">
+                    <strong>Can't publish yet:</strong>
+                    <ul>
+                        @foreach (var blocker in _readiness.Blockers)
+                        {
+                            <li>@blocker</li>
+                        }
+                    </ul>
+                    @if (_readiness.MissingNotes.Count > 0)
+                    {
+                        <p>Write and review these notes:</p>
+                        <ul>
+                            @foreach (var line in _readiness.MissingNotes)
+                            {
+                                <li><a href="impact-notes/@line.RoadmapItemId">@line.Title</a></li>
+                            }
+                        </ul>
+                    }
+                </div>
+            }
+
+            @if (_error is not null)
+            {
+                <div class="error" role="alert">@_error</div>
+            }
+            @if (_published is not null)
+            {
+                <div class="last-action" role="status">@_published</div>
+            }
+        </div>
+
+        <section class="plan-contents">
+            <h2>In the plan</h2>
+            @if (_readiness.Lines.Count == 0)
+            {
+                <p class="muted">Nothing yet. Mandatory changes appear automatically; other items appear once they're decided Adopt, Test first or Blocked on the <a href="customers/@customer.Id">decision board</a>.</p>
+            }
+            else
+            {
+                <table>
+                    <thead>
+                        <tr><th>Change</th><th>Section</th><th>Version</th><th>Decision</th><th>Impact note</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var line in _readiness.Lines)
+                        {
+                            <tr>
+                                <td class="title">@line.Title</td>
+                                <td class="nowrap">@WordPlanWriter.SectionTitle(line.Section)</td>
+                                <td class="nowrap">@(line.TargetVersion ?? "—")</td>
+                                <td class="nowrap">@WordPlanWriter.DecisionLabel(line.Decision)</td>
+                                <td class="nowrap">
+                                    <a href="impact-notes/@line.RoadmapItemId"><span class="note-status note-status--@(line.HasReviewedNote ? "reviewed" : "none")">@(line.HasReviewedNote ? "Reviewed" : "Needs review")</span></a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </section>
+
+        <section class="plan-contents">
+            <h2>Published versions</h2>
+            @if (_readiness.Published.Count == 0)
+            {
+                <p class="muted">Not published yet.</p>
+            }
+            else
+            {
+                <table>
+                    <thead>
+                        <tr><th>Version</th><th>Period</th><th>Published</th><th>Status</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var plan in _readiness.Published)
+                        {
+                            <tr>
+                                <td class="nowrap">@plan.Version</td>
+                                <td>@plan.PeriodLabel</td>
+                                <td class="nowrap">@plan.PublishedAt?.ToLocalTime().ToString("d MMM yyyy HH:mm")</td>
+                                <td class="nowrap">@plan.Status</td>
+                                <td class="nowrap"><a href="release-plans/@plan.Id" download>Download .docx</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid CustomerId { get; set; }
+
+    private ReleasePlanService.Readiness? _readiness;
+    private bool _notFound;
+    private bool _busy;
+    private string? _error;
+    private string? _published;
+    private string _period = PlanRules.DefaultPeriod(DateOnly.FromDateTime(DateTime.Today));
+
+    private string PreviewHref => $"customers/{CustomerId}/release-plan/preview?period={Uri.EscapeDataString(_period)}";
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _readiness = await Plans.GetReadinessAsync(CustomerId);
+        _notFound = _readiness is null;
+    }
+
+    private async Task PublishAsync()
+    {
+        _busy = true;
+        _error = null;
+        _published = null;
+        try
+        {
+            var plan = await Plans.PublishAsync(CustomerId, _period);
+            _published = $"Published version {plan.Version}. Download it from Published versions below.";
+            await LoadAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

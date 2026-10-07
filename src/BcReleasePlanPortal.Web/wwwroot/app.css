@@ -907,3 +907,94 @@ ul.changes {
     color: #1d4ed8;
     font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
 }
+
+/* Release plan page */
+
+.board-link--next {
+    margin-left: 12px;
+}
+
+.plan-panel {
+    display: grid;
+    gap: 12px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.plan-field {
+    display: grid;
+    gap: 4px;
+    max-width: 320px;
+}
+
+.plan-field label {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.plan-field input {
+    font: inherit;
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+}
+
+.plan-counts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 13px;
+    color: #4b5563;
+}
+
+a.button {
+    display: inline-block;
+    padding: 6px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: white;
+    color: #1f2937;
+    font-size: 13px;
+    text-decoration: none;
+}
+
+a.button:hover {
+    background: #f3f4f6;
+}
+
+.blockers {
+    padding: 10px 12px;
+    border-radius: 6px;
+    background: #fffbeb;
+    color: #78350f;
+    font-size: 13px;
+}
+
+.blockers ul {
+    margin: 4px 0;
+    padding-left: 18px;
+}
+
+.blockers p {
+    margin: 8px 0 0;
+}
+
+.blockers a {
+    color: #1d4ed8;
+}
+
+.plan-contents {
+    margin-bottom: 20px;
+}
+
+.plan-contents h2 {
+    margin: 0 0 8px;
+    font-size: 15px;
+}
+
+.plan-contents td a {
+    text-decoration: none;
+}

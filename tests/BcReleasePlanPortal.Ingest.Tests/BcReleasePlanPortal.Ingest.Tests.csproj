@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\src\BcReleasePlanPortal.Ingest\BcReleasePlanPortal.Ingest.csproj" />
     <ProjectReference Include="..\..\src\BcReleasePlanPortal.Domain\BcReleasePlanPortal.Domain.csproj" />
     <ProjectReference Include="..\..\src\BcReleasePlanPortal.Data\BcReleasePlanPortal.Data.csproj" />
+    <ProjectReference Include="..\..\src\BcReleasePlanPortal.Publishing\BcReleasePlanPortal.Publishing.csproj" />
   </ItemGroup>
 
   <ItemGroup>
