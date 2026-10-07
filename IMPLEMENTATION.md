@@ -226,6 +226,21 @@ still hold, only the labels and sample copy are wrong.
 
 ⬜ **Not started.** Manual entry + ISV release-note ingestion (Continia/idyn/Anvaigo).
 
+**Research, 2026-10-07 — how two ISVs publish release notes** (pages fetched and inspected, not taken from search snippets). Conclusion: ISVs follow BC's *cadence* but not Microsoft's *channel* — nothing comes through the release-communications MCP server, so each ISV needs its own reader, like the Learn reader.
+
+| | Continia | Tasklet Factory (Mobile WMS) |
+|---|---|---|
+| Where | `docs.continia.com/en-us/{product}/new-and-planned/overview/` — same pattern for every product (document-capture, document-output, expense-management, banking, payment-management, collection-management) | One Confluence page, "Release Notes (Business Central)", `taskletfactory.atlassian.net/wiki/spaces/TFSK/pages/78945317` |
+| Machine access | Static HTML, no feed (`/feed.xml` is the site's catch-all page) | Confluence REST API answers without login: `/wiki/rest/api/content/78945317?expand=body.storage,version` → XHTML body + page version (322, edited 2026-09-11) |
+| Cadence | Majors on **1 April and 1 October**, same day as BC online ("in alignment with the Microsoft Dynamics 365 Business Central online release schedule"); on-prem within two weeks; sandbox preview 1–2 weeks before | **Roughly monthly**, not tied to BC waves (MOB5.67 June, 5.68 July + hotfix, 5.69 September 2026); 86 releases on the page back to MOB4.3 |
+| Structure | A rolling **Feature / Public preview / General availability** table (by month) covering last major → next major — the same shape as Microsoft's old release plans. 29 Document Capture rows on 2026-10-07, through Oct 2026 | Per release: heading `Version MOB5.69 (Build 287) - September 2026`, "Minimum Mobile app version", **"Compatible with BC version: 25.0 and up"**, then feature headings; section names vary (Highlights/Highlight, Improvements/Improvement, New Feature(s), Bug, Miscellaneous) |
+| Stable ID per item | Each feature links to its own page (`…/previous-release-plans/2025-release-2/documents-and-templates/edocuments-first/`) — use the URL | Version + heading for features; ticket numbers (`NTW-1117`) for fixes |
+| Text for impact notes | Feature pages have **Business value** and **Feature details** sections — near one-to-one with an impact note's "why it matters" and "summary" | Paragraphs under each feature heading |
+| Breaking changes | Not seen on the Document Capture page; check other products | Inline in ticket lists ("NTW-1117 Breaking changes: Make procedures public…"); "Removed"/"obsolete"/"Deprecat…" appear 15/16/7 times — the existing keyword classifier would catch them |
+| Quirks | Footnote markers glued to dates ("Oct 2025**1**"); "N/A" GA dates for unscheduled items | One 624 KB page that keeps growing; inconsistent section headings; "Compatible with BC version" gives a minimum BC version per release, worth checking against a customer's production version |
+
+Order to build in: whichever ISV appears most in real customer profiles. Continia is the easier first reader (structured table, per-feature pages, one pattern for all products); Tasklet is straightforward via the Confluence API but needs looser section parsing. The design doc's open question — ISV changes in the same release plan or a separate annex — still stands.
+
 ---
 
 ## Open items carried over from the design doc (§13)
